@@ -432,8 +432,8 @@ textarea{resize:vertical;min-height:60px}
   <!-- ── Page: Users ── -->
   <div class="page" id="page-users">
     <div class="filter-bar">
-      <input class="search-box" type="text" placeholder="ค้นหาผู้ใช้..." id="userSearch" oninput="renderUsers()">
-      <button class="btn btn-primary" onclick="openUserModal()">+ เพิ่มผู้ใช้</button>
+      <input class="search-box" type="text" placeholder="ค้นหาชื่อ / แผนก..." id="userSearch" oninput="renderUsers()">
+      <span style="font-size:11px;color:var(--text3)">ผู้ใช้ใหม่ต้องสมัครผ่านหน้า Login ก่อน จึงจะปรากฏที่นี่</span>
       <span class="count-label" id="userCount"></span>
     </div>
     <div class="grid-cards" id="usersGrid"></div>
@@ -597,22 +597,35 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
-<!-- ════ MODAL: User ════ -->
+<!-- ════ MODAL: User (edit profile only) ════ -->
 <div class="modal-overlay" id="userModal">
   <div class="modal">
     <div class="modal-header">
-      <span class="modal-title" id="userModalTitle">เพิ่มผู้ใช้</span>
+      <span class="modal-title">แก้ไขข้อมูลผู้ใช้</span>
       <button class="modal-close" onclick="closeModal('userModal')">✕</button>
     </div>
     <div class="modal-body">
       <input type="hidden" id="userEditId">
-      <div class="form-row">
-        <div class="form-group"><label>ชื่อ-สกุล *</label><input type="text" id="u-name" placeholder="ชื่อ-สกุล..."></div>
-        <div class="form-group"><label>ตำแหน่ง</label><input type="text" id="u-role" placeholder="ตำแหน่งงาน..."></div>
+      <!-- email is read-only — owned by Supabase Auth -->
+      <div class="form-row full">
+        <div class="form-group">
+          <label>อีเมล (แก้ไขไม่ได้)</label>
+          <input type="email" id="u-email" readonly style="background:var(--surface2);color:var(--text3);cursor:not-allowed">
+        </div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>อีเมล</label><input type="email" id="u-email" placeholder="email@psu.ac.th"></div>
+        <div class="form-group"><label>ชื่อ-สกุล *</label><input type="text" id="u-name" placeholder="ชื่อ-สกุล..."></div>
+        <div class="form-group"><label>ตำแหน่ง</label><input type="text" id="u-position" placeholder="ตำแหน่งงาน..."></div>
+      </div>
+      <div class="form-row">
         <div class="form-group"><label>แผนก / งาน</label><input type="text" id="u-dept" placeholder="ชื่อแผนก..."></div>
+        <div class="form-group"><label>สิทธิ์</label>
+          <select id="u-role-select">
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+            <option value="superadmin">superadmin</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="modal-footer">
@@ -885,13 +898,13 @@ async function initData() {
   try {
     const [tr, ur, pr, lr] = await Promise.all([
       db.from('tasks').select('*').order('id'),
-      db.from('users').select('*').order('id'),
+      db.from('profiles').select('id, email, display_name, role, position, dept').order('email'),
       db.from('projects').select('*').order('id'),
       db.from('daily_logs').select('*').order('created_at', { ascending: false }).limit(300),
     ]);
     if (tr.error) throw tr.error;
     tasks     = tr.data || [];
-    users     = ur.data || [];
+    users     = ur.data || [];   // now backed by profiles
     projects  = (pr.data || []).map(p => ({ ...p, desc: p.description }));
     dailyLogs = lr.data || [];
   } catch(e) {
@@ -1128,94 +1141,96 @@ async function deleteTask(id) {
 }
 
 // ════════════════════════════════
-//  USERS PAGE
+//  USERS PAGE  (single source: profiles)
 // ════════════════════════════════
 function renderUsers() {
   const q = (document.getElementById('userSearch').value||'').toLowerCase();
-  const filtered = users.filter(u => !q || (u.name||'').toLowerCase().includes(q) || (u.dept||'').toLowerCase().includes(q));
+  const filtered = users.filter(u =>
+    !q ||
+    (u.display_name||'').toLowerCase().includes(q) ||
+    (u.dept||'').toLowerCase().includes(q) ||
+    (u.position||'').toLowerCase().includes(q) ||
+    (u.email||'').toLowerCase().includes(q)
+  );
   document.getElementById('userCount').textContent = `${filtered.length} คน`;
   document.getElementById('usersGrid').innerHTML = filtered.map(u => {
-    const tc = tasks.filter(t=>t.owner===u.name).length;
-    const ip = tasks.filter(t=>t.owner===u.name&&t.status==='In Progress').length;
+    const name = u.display_name || u.email;
+    const tc = tasks.filter(t => t.assigned_email === u.email).length;
+    const ip = tasks.filter(t => t.assigned_email === u.email && t.status === 'In Progress').length;
+    const roleCls = {superadmin:'color:#6b21a8',admin:'color:var(--blue)',user:'color:var(--green)'}[u.role] || '';
     return `
     <div class="user-card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div class="avatar">${initials(u.name)}</div>
-        <div>
-          <div style="font-size:13px;font-weight:600">${u.name}</div>
-          <div style="font-size:11px;color:var(--text2)">${u.role||'-'}</div>
+        <div class="avatar">${initials(name)}</div>
+        <div style="min-width:0">
+          <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
+          <div style="font-size:11px;color:var(--text2)">${u.position||'-'}</div>
         </div>
       </div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${u.email||'-'}</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">📁 ${u.dept||'-'}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email||'-'}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">📁 ${u.dept||'-'}</div>
+      <div style="font-size:11px;font-weight:600;margin-bottom:10px;${roleCls}">🔑 ${u.role||'user'}</div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);border-top:var(--border-half);padding-top:8px">
         <span>งานทั้งหมด: <strong>${tc}</strong></span>
         <span>In Progress: <strong style="color:var(--blue)">${ip}</strong></span>
       </div>
-      <div style="display:flex;gap:4px;margin-top:8px">
-        <button class="btn btn-sm" style="flex:1" onclick="openUserModal(${u.id})">แก้ไข</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">ลบ</button>
+      <div style="margin-top:8px">
+        <button class="btn btn-sm btn-primary" style="width:100%" onclick="openUserModal('${u.id}')">แก้ไข</button>
       </div>
     </div>`;
   }).join('');
 }
 
 function openUserModal(id) {
-  document.getElementById('userEditId').value = id||'';
-  if(id) {
-    const u = users.find(x=>x.id===id);
-    document.getElementById('userModalTitle').textContent = 'แก้ไขผู้ใช้';
-    document.getElementById('u-name').value  = u.name;
-    document.getElementById('u-role').value  = u.role||'';
-    document.getElementById('u-email').value = u.email||'';
-    document.getElementById('u-dept').value  = u.dept||'';
-  } else {
-    document.getElementById('userModalTitle').textContent = 'เพิ่มผู้ใช้';
-    ['u-name','u-role','u-email','u-dept'].forEach(x=>document.getElementById(x).value='');
-  }
+  const u = users.find(x => x.id === id);
+  if (!u) return;
+  document.getElementById('userEditId').value      = u.id;
+  document.getElementById('u-email').value         = u.email || '';
+  document.getElementById('u-name').value          = u.display_name || '';
+  document.getElementById('u-position').value      = u.position || '';
+  document.getElementById('u-dept').value          = u.dept || '';
+  document.getElementById('u-role-select').value   = u.role || 'user';
   document.getElementById('userModal').classList.add('open');
 }
 
 async function saveUser() {
-  const name = document.getElementById('u-name').value.trim();
-  if(!name){alert('กรุณากรอกชื่อ');return;}
+  const display_name = document.getElementById('u-name').value.trim();
+  if (!display_name) { alert('กรุณากรอกชื่อ-สกุล'); return; }
   const editId = document.getElementById('userEditId').value;
   const obj = {
-    name,
-    role:  document.getElementById('u-role').value,
-    email: document.getElementById('u-email').value,
-    dept:  document.getElementById('u-dept').value,
+    display_name,
+    position: document.getElementById('u-position').value,
+    dept:     document.getElementById('u-dept').value,
+    role:     document.getElementById('u-role-select').value,
   };
-  if(editId) {
-    const {error} = await db.from('users').update(obj).eq('id', editId);
-    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
-    const idx=users.findIndex(u=>u.id==editId); users[idx]={...users[idx],...obj};
-  } else {
-    const {data, error} = await db.from('users').insert([obj]).select().single();
-    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
-    users.push(data);
-  }
-  closeModal('userModal'); renderUsers();
-}
-
-async function deleteUser(id) {
-  if(!confirm('ต้องการลบผู้ใช้นี้?')) return;
-  const {error} = await db.from('users').delete().eq('id', id);
-  if(error){alert('ลบไม่สำเร็จ: '+error.message);return;}
-  users = users.filter(u=>u.id!==id); renderUsers();
+  const { error } = await db.from('profiles').update(obj).eq('id', editId);
+  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+  const idx = users.findIndex(u => u.id === editId);
+  users[idx] = { ...users[idx], ...obj };
+  closeModal('userModal');
+  renderUsers();
+  // keep roles page in sync if visible
+  const rolesPage = document.getElementById('page-roles');
+  if (rolesPage && rolesPage.classList.contains('active')) renderRoles();
 }
 
 // ════════════════════════════════
 //  ROLES PAGE
 // ════════════════════════════════
 async function renderRoles() {
-  const { data, error } = await db.from('profiles').select('id, email, display_name, role').order('email');
+  const { data, error } = await db.from('profiles')
+    .select('id, email, display_name, role, position, dept').order('email');
   if (error) { alert('โหลดข้อมูลไม่สำเร็จ: ' + error.message); return; }
+  // keep users in-memory store in sync
+  users = data;
   document.getElementById('rolesCount').textContent = `${data.length} คน`;
   document.getElementById('rolesBody').innerHTML = data.map(p => `
     <tr>
       <td>${p.email}</td>
-      <td>${p.display_name || '-'}</td>
+      <td>
+        <div style="font-size:12px;font-weight:500">${p.display_name || '-'}</div>
+        <div style="font-size:11px;color:var(--text3)">${p.position||''} ${p.dept ? '· '+p.dept : ''}</div>
+      </td>
       <td>
         <select id="role_${p.id}" style="border:var(--border);border-radius:var(--r8);padding:4px 8px;font-size:12px;background:var(--surface)">
           <option value="user"       ${p.role==='user'       ?'selected':''}>user</option>
