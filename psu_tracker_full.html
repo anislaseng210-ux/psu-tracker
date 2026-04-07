@@ -197,6 +197,11 @@ textarea{resize:vertical;min-height:60px}
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8C2.5 4.5 5 2.5 8 2.5s5.5 2 7 5.5c-1.5 3.5-4 5.5-7 5.5S2.5 11.5 1 8z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
       </button>
     </div>
+    <div id="signupExtraFields" style="display:none;width:100%">
+      <input class="login-field" type="text" id="authName" placeholder="ชื่อ-สกุล *" style="margin-bottom:10px">
+      <input class="login-field" type="text" id="authPosition" placeholder="ตำแหน่ง" style="margin-bottom:10px">
+      <input class="login-field" type="text" id="authDept" placeholder="แผนก / งาน" style="margin-bottom:10px">
+    </div>
     <button class="login-btn" id="authBtn" onclick="doAuth()">เข้าสู่ระบบ</button>
     <div class="login-error" id="authError"></div>
   </div>
@@ -615,6 +620,7 @@ function switchTab(mode) {
   document.getElementById('tabLogin').classList.toggle('active', mode==='login');
   document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
   document.getElementById('confirmWrap').style.display = mode==='signup' ? 'block' : 'none';
+  document.getElementById('signupExtraFields').style.display = mode==='signup' ? 'block' : 'none';
   document.getElementById('authBtn').textContent = mode==='login' ? 'เข้าสู่ระบบ' : 'สมัครใช้งาน';
   document.getElementById('authError').textContent = '';
 }
@@ -633,9 +639,18 @@ async function doAuth() {
   document.getElementById('authBtn').textContent = 'กำลังดำเนินการ...';
   document.getElementById('authBtn').disabled = true;
 
+  if (authMode === 'signup') {
+    const name = document.getElementById('authName').value.trim();
+    if (!name) { errEl.textContent = 'กรุณากรอกชื่อ-สกุล'; document.getElementById('authBtn').disabled = false; switchTab('signup'); return; }
+  }
+  const signupMeta = authMode === 'signup' ? {
+    name:     document.getElementById('authName').value.trim(),
+    position: document.getElementById('authPosition').value.trim(),
+    dept:     document.getElementById('authDept').value.trim(),
+  } : {};
   const { error } = authMode === 'login'
     ? await db.auth.signInWithPassword({ email, password })
-    : await db.auth.signUp({ email, password });
+    : await db.auth.signUp({ email, password, options: { data: signupMeta } });
 
   document.getElementById('authBtn').disabled = false;
   switchTab(authMode);
