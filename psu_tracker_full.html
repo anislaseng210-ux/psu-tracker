@@ -1176,8 +1176,11 @@ function renderUsers() {
         <span>งานทั้งหมด: <strong>${tc}</strong></span>
         <span>In Progress: <strong style="color:var(--blue)">${ip}</strong></span>
       </div>
-      <div style="margin-top:8px">
-        <button class="btn btn-sm btn-primary" style="width:100%" onclick="openUserModal('${u.id}')">แก้ไข</button>
+      <div style="display:flex;gap:4px;margin-top:8px">
+        <button class="btn btn-sm btn-primary" style="flex:1" onclick="openUserModal('${u.id}')">แก้ไข</button>
+        ${currentUser?.role === 'superadmin' && u.id !== currentUser.id
+          ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">ลบ</button>`
+          : ''}
       </div>
     </div>`;
   }).join('');
@@ -1214,6 +1217,16 @@ async function saveUser() {
   // keep roles page in sync if visible
   const rolesPage = document.getElementById('page-roles');
   if (rolesPage && rolesPage.classList.contains('active')) renderRoles();
+}
+
+async function deleteUser(id) {
+  const u = users.find(x => x.id === id);
+  if (!u) return;
+  if (!confirm(`ต้องการลบ "${u.display_name || u.email}" ออกจากระบบ?\n⚠️ ข้อมูลทั้งหมดจะถูกลบและไม่สามารถกู้คืนได้`)) return;
+  const { error } = await db.rpc('delete_user_by_id', { target_id: id });
+  if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+  users = users.filter(u => u.id !== id);
+  renderUsers();
 }
 
 // ════════════════════════════════
