@@ -903,8 +903,10 @@ async function initData() {
       db.from('daily_logs').select('*').order('created_at', { ascending: false }).limit(300),
     ]);
     if (tr.error) throw tr.error;
+    if (ur.error) throw ur.error;
+    if (pr.error) throw pr.error;
     tasks     = tr.data || [];
-    users     = ur.data || [];   // now backed by profiles
+    users     = ur.data || [];
     projects  = (pr.data || []).map(p => ({ ...p, desc: p.description }));
     dailyLogs = lr.data || [];
   } catch(e) {
