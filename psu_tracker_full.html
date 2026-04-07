@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PSU Information Tracker · ระบบติดตามงานและโครงการ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue:#1a56db;--blue-light:#e8f0fe;--blue-dark:#0f2044;
+  --red:#e53935;--green:#1b8a5a;--amber:#b45309;
+  --bg:#f3f4f6;--surface:#fff;--surface2:#f9fafb;
+  --border:1px solid #e5e7eb;--border-half:0.5px solid #e5e7eb;
+  --text:#111827;--text2:#6b7280;--text3:#9ca3af;
+  --r8:8px;--r12:12px;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+.app{display:flex;height:100vh}
+
+/* ── Sidebar ── */
+.sidebar{width:210px;background:var(--surface);border-right:var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.logo-wrap{padding:14px 16px;border-bottom:var(--border);display:flex;align-items:center;gap:10px}
+.logo-badge{width:34px;height:34px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:9px;font-weight:700;line-height:1.2;text-align:center;flex-shrink:0}
+.logo-text{font-size:12px;font-weight:600;color:var(--text);line-height:1.3}
+.logo-sub{font-size:10px;color:var(--text2)}
+.nav-section{font-size:10px;color:var(--text3);padding:14px 14px 4px;text-transform:uppercase;letter-spacing:.05em}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:12.5px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;transition:background .12s}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--blue-light);color:var(--blue);border-left:2px solid var(--blue);font-weight:600}
+.nav-icon{width:15px;height:15px;flex-shrink:0}
+.nav-badge{margin-left:auto;background:#fee2e2;color:#991b1b;font-size:10px;font-weight:700;padding:1px 6px;border-radius:99px}
+
+/* ── Main ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{padding:11px 22px;border-bottom:var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.page-title{font-size:14px;font-weight:600;color:var(--text)}
+.page-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.topbar-right{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text2)}
+.live-badge{display:flex;align-items:center;gap:4px;color:#1b8a5a;font-size:11px;font-weight:600}
+.live-dot{width:6px;height:6px;background:#22c55e;border-radius:50%;animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ── Tabs ── */
+.tab-bar{display:flex;border-bottom:var(--border);background:var(--surface);padding:0 22px;flex-shrink:0}
+.tab{padding:8px 14px;font-size:12px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent}
+.tab.active{color:var(--blue);border-bottom:2px solid var(--blue);font-weight:600}
+
+/* ── Pages ── */
+.page{display:none;flex:1;overflow-y:auto;padding:18px 22px;flex-direction:column;gap:14px}
+.page.active{display:flex}
+
+/* ── Stat Cards ── */
+.stat-row{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.stat-card{background:var(--surface);border:var(--border-half);border-radius:var(--r8);padding:12px 14px}
+.stat-label{font-size:11px;color:var(--text2);margin-bottom:5px}
+.stat-val{font-size:22px;font-weight:700;color:var(--text)}
+.stat-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.c-blue{color:var(--blue)}.c-red{color:var(--red)}.c-green{color:var(--green)}.c-amber{color:var(--amber)}
+
+/* ── Filter Bar ── */
+.filter-bar{display:flex;align-items:center;gap:8px}
+.search-box{flex:1;border:var(--border-half);border-radius:var(--r8);padding:7px 10px;font-size:12px;background:var(--surface);color:var(--text);outline:none}
+.search-box:focus{border-color:var(--blue)}
+.fselect{border:var(--border-half);border-radius:var(--r8);padding:7px 8px;font-size:12px;background:var(--surface);color:var(--text);outline:none;cursor:pointer}
+.btn{padding:7px 14px;font-size:12px;border-radius:var(--r8);cursor:pointer;border:var(--border-half);background:var(--surface);color:var(--text);font-weight:500;transition:background .12s}
+.btn:hover{background:var(--surface2)}
+.btn-primary{background:var(--blue);color:#fff;border:none}
+.btn-primary:hover{background:#1648c2}
+.btn-danger{background:#fee2e2;color:#991b1b;border:none}
+.btn-danger:hover{background:#fecaca}
+.btn-sm{padding:4px 10px;font-size:11px;border-radius:6px}
+.count-label{font-size:11px;color:var(--text2);white-space:nowrap}
+
+/* ── Table ── */
+.card{background:var(--surface);border:var(--border-half);border-radius:var(--r12);overflow:hidden}
+table{width:100%;border-collapse:collapse;font-size:12px;table-layout:fixed}
+th{padding:8px 10px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);background:var(--surface2);border-bottom:var(--border)}
+td{padding:9px 10px;color:var(--text);border-bottom:var(--border-half);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f9fafb}
+.task-name{font-weight:500;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--blue);cursor:pointer}
+.cell-muted{font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.b-high{background:#fde8e8;color:#991b1b}.b-medium{background:#fef3c7;color:#92400e}.b-low{background:#ecfdf5;color:#065f46}
+.b-inprog{background:#e0e7ff;color:#3730a3}.b-todo{background:#f3f4f6;color:#374151}.b-done{background:#d1fae5;color:#065f46}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+.d-high{background:var(--red)}.d-medium{background:#f59e0b}.d-low{background:#10b981}.d-inprog{background:#6366f1}.d-todo{background:#9ca3af}.d-done{background:#10b981}
+.prog-wrap{display:flex;align-items:center;gap:6px}
+.prog-bar{flex:1;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:var(--blue);border-radius:2px}
+.prog-text{font-size:11px;color:var(--text2);min-width:28px}
+.row-urgent td:first-child{border-left:2px solid var(--red)}
+
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--r12);width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.modal-header{padding:16px 20px;border-bottom:var(--border);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:14px;font-weight:600}
+.modal-close{width:28px;height:28px;border-radius:6px;border:var(--border-half);background:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text2)}
+.modal-close:hover{background:var(--surface2)}
+.modal-body{padding:20px}
+.modal-footer{padding:14px 20px;border-top:var(--border);display:flex;justify-content:flex-end;gap:8px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.form-row.full{grid-template-columns:1fr}
+.form-group{display:flex;flex-direction:column;gap:4px}
+label{font-size:12px;font-weight:600;color:var(--text2)}
+input,select,textarea{border:var(--border-half);border-radius:var(--r8);padding:8px 10px;font-size:12px;color:var(--text);background:var(--surface);outline:none;font-family:inherit}
+input:focus,select:focus,textarea:focus{border-color:var(--blue)}
+textarea{resize:vertical;min-height:60px}
+
+/* ── Dashboard charts ── */
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.dash-grid.full{grid-template-columns:1fr}
+.chart-card{background:var(--surface);border:var(--border-half);border-radius:var(--r12);padding:16px}
+.chart-title{font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text)}
+.chart-wrap{position:relative;height:200px}
+
+/* ── Weekly Report ── */
+.report-header{background:var(--blue-dark);border-radius:var(--r12);padding:20px 24px;color:#fff}
+.report-title{font-size:18px;font-weight:700;margin-bottom:4px}
+.report-sub{font-size:12px;color:#93c5fd}
+.report-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+.rstat{background:rgba(255,255,255,.12);border-radius:var(--r8);padding:10px;text-align:center}
+.rstat-val{font-size:20px;font-weight:700;color:#fff}
+.rstat-label{font-size:10px;color:rgba(255,255,255,.7);margin-top:2px}
+.section-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;padding-bottom:6px;border-bottom:var(--border)}
+.report-section{background:var(--surface);border:var(--border-half);border-radius:var(--r12);padding:16px}
+
+/* ── Users / Projects ── */
+.grid-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.user-card{background:var(--surface);border:var(--border-half);border-radius:var(--r12);padding:14px}
+.avatar{width:40px;height:40px;border-radius:50%;background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--blue);flex-shrink:0}
+.proj-card{background:var(--surface);border:var(--border-half);border-radius:var(--r12);padding:14px}
+.proj-bar{height:6px;border-radius:3px;background:#e5e7eb;overflow:hidden;margin:8px 0 4px}
+.proj-fill{height:100%;border-radius:3px;background:var(--blue)}
+
+/* ── Loading overlay ── */
+#loadingOverlay{position:fixed;inset:0;background:rgba(255,255,255,.85);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px}
+.spinner{width:36px;height:36px;border:3px solid #e5e7eb;border-top-color:var(--blue);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#configBanner{display:none;background:#fef3c7;border-bottom:1px solid #fcd34d;padding:8px 22px;font-size:12px;color:#92400e;flex-shrink:0}
+
+/* ── Login Screen ── */
+#loginScreen{position:fixed;inset:0;background:var(--bg);z-index:300;display:flex;align-items:center;justify-content:center}
+.login-card{background:var(--surface);border:var(--border);border-radius:var(--r12);padding:40px 44px;width:400px;box-shadow:0 8px 40px rgba(0,0,0,.08)}
+.login-logo{width:52px;height:52px;background:var(--blue);border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;line-height:1.3;text-align:center;margin:0 auto 16px}
+.login-title{font-size:18px;font-weight:700;color:var(--text);text-align:center;margin-bottom:4px}
+.login-sub{font-size:12px;color:var(--text2);text-align:center;margin-bottom:28px}
+.login-tabs{display:flex;border-bottom:var(--border);margin-bottom:20px}
+.login-tab{flex:1;text-align:center;padding:8px;font-size:13px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent}
+.login-tab.active{color:var(--blue);border-bottom:2px solid var(--blue);font-weight:600}
+.login-field{width:100%;margin-bottom:10px;border:var(--border);border-radius:var(--r8);padding:9px 12px;font-size:13px;color:var(--text);outline:none;box-sizing:border-box}
+.login-field:focus{border-color:var(--blue)}
+.login-btn{width:100%;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:var(--r8);font-size:13px;font-weight:600;cursor:pointer;margin-top:6px}
+.login-btn:hover{background:#1648c2}
+.login-error{color:var(--red);font-size:12px;margin-top:8px;text-align:center;min-height:18px}
+.pass-wrap{position:relative;margin-bottom:10px}
+.pass-wrap .login-field{margin-bottom:0;padding-right:38px}
+.eye-btn{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text3);padding:2px;display:flex;align-items:center}
+.user-chip{display:flex;align-items:center;gap:6px;background:var(--surface2);border:var(--border-half);border-radius:99px;padding:4px 10px 4px 4px;font-size:12px;color:var(--text2)}
+.user-chip .avatar-sm{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* ── User View ── */
+#userView{display:none;flex-direction:column;height:100vh;background:var(--bg)}
+.uv-header{background:var(--blue-dark);padding:20px 28px;color:#fff;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.uv-greeting{font-size:18px;font-weight:700}
+.uv-sub{font-size:12px;color:#93c5fd;margin-top:3px}
+.uv-body{flex:1;overflow-y:auto;padding:20px 28px;display:flex;flex-direction:column;gap:14px}
+.pm-range{width:100%;margin:8px 0}
+.pm-val{font-size:22px;font-weight:700;color:var(--blue);text-align:center;margin-bottom:4px}
+</style>
+</head>
+<body>
+<!-- ════ LOGIN SCREEN ════ -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">PSU<br>มอ.</div>
+    <div class="login-title">PSU Information Tracker</div>
+    <div class="login-sub">งานสารสนเทศ กองพัฒนานักศึกษา</div>
+    <div class="login-tabs">
+      <div class="login-tab active" id="tabLogin" onclick="switchTab('login')">เข้าสู่ระบบ</div>
+      <div class="login-tab" id="tabSignup" onclick="switchTab('signup')">สมัครใช้งาน</div>
+    </div>
+    <input class="login-field" type="email" id="authEmail" placeholder="email@psu.ac.th" autocomplete="email">
+    <div class="pass-wrap">
+      <input class="login-field" type="password" id="authPassword" placeholder="รหัสผ่าน" autocomplete="current-password">
+      <button type="button" class="eye-btn" onclick="togglePass('authPassword',this)" tabindex="-1">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8C2.5 4.5 5 2.5 8 2.5s5.5 2 7 5.5c-1.5 3.5-4 5.5-7 5.5S2.5 11.5 1 8z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      </button>
+    </div>
+    <div class="pass-wrap" id="confirmWrap" style="display:none">
+      <input class="login-field" type="password" id="authConfirm" placeholder="ยืนยันรหัสผ่าน" autocomplete="new-password">
+      <button type="button" class="eye-btn" onclick="togglePass('authConfirm',this)" tabindex="-1">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8C2.5 4.5 5 2.5 8 2.5s5.5 2 7 5.5c-1.5 3.5-4 5.5-7 5.5S2.5 11.5 1 8z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/></svg>
+      </button>
+    </div>
+    <button class="login-btn" id="authBtn" onclick="doAuth()">เข้าสู่ระบบ</button>
+    <div class="login-error" id="authError"></div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <span style="font-size:13px;color:var(--text2)">กำลังโหลดข้อมูล...</span>
+</div>
+
+<div id="configBanner">⚠️ ยังไม่ได้ตั้งค่า Supabase — กรุณาแก้ไข SUPABASE_URL และ SUPABASE_KEY ในไฟล์ก่อนใช้งาน</div>
+
+<div class="app" id="adminView" style="display:none">
+
+<!-- ════ SIDEBAR ════ -->
+<div class="sidebar">
+  <div class="logo-wrap">
+    <div class="logo-badge">PSU<br>มอ.</div>
+    <div>
+      <div class="logo-text">Information Tracker</div>
+      <div class="logo-sub">กองพัฒนานักศึกษา</div>
+    </div>
+  </div>
+  <div class="nav-section">จัดการ</div>
+  <div class="nav-item" onclick="navigate('users')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 13c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M14 13c0-2-1.3-3.7-3-4.4" stroke="currentColor" stroke-width="1.2"/></svg>
+    จัดการผู้ใช้
+  </div>
+  <div class="nav-item" onclick="navigate('roles')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 1l1.8 3.6L14 5.6l-3 2.9.7 4.1L8 10.5l-3.7 2.1.7-4.1-3-2.9 4.2-.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+    จัดการสิทธิ์
+  </div>
+  <div class="nav-item" onclick="navigate('projects')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+    จัดการโปรเจกต์
+  </div>
+  <div class="nav-item" onclick="navigate('manage')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+    จัดการงาน
+  </div>
+  <div class="nav-section">มุมมอง</div>
+  <div class="nav-item active" onclick="navigate('tasks')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="7" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="12" width="7" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+    มุมมองติดตามงาน
+    <span class="nav-badge" id="urgentBadge">5</span>
+  </div>
+  <div class="nav-item" onclick="navigate('report')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 12L6 7l3 3 2-4 3 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Weekly Status Report
+  </div>
+  <div class="nav-item" onclick="navigate('dashboard')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M1 6h14M6 6v9" stroke="currentColor" stroke-width="1"/></svg>
+    Dashboard
+  </div>
+</div>
+
+<!-- ════ MAIN ════ -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="page-title" id="pageTitle">มุมมองติดตามงาน</div>
+      <div class="page-sub" id="pageSub">งานสารสนเทศ กองพัฒนานักศึกษา มหาวิทยาลัยสงขลานครินทร์ · ปีการศึกษา 2568</div>
+    </div>
+    <div class="topbar-right">
+      <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+      <span id="clockDisplay">--:-- น.</span>
+      <div class="user-chip" id="userChip" style="display:none">
+        <div class="avatar-sm" id="userInitial">?</div>
+        <span id="userEmail" style="max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+        <button onclick="doLogout()" style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:0 0 0 4px" title="ออกจากระบบ">⏻</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Page: Task Tracking ── -->
+  <div class="page active" id="page-tasks">
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-label">งานทั้งหมด</div><div class="stat-val" id="s-total">0</div><div class="stat-sub">รายการ</div></div>
+      <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-val c-blue" id="s-inprog">0</div><div class="stat-sub">กำลังดำเนินการ</div></div>
+      <div class="stat-card"><div class="stat-label">To Do</div><div class="stat-val" id="s-todo">0</div><div class="stat-sub">รอดำเนินการ</div></div>
+      <div class="stat-card"><div class="stat-label">Priority High</div><div class="stat-val c-red" id="s-high">0</div><div class="stat-sub">งานเร่งด่วน</div></div>
+      <div class="stat-card"><div class="stat-label">ความคืบหน้าเฉลี่ย</div><div class="stat-val c-green" id="s-avg">0%</div><div class="stat-sub">ภาพรวมทั้งหมด</div></div>
+    </div>
+    <div class="filter-bar">
+      <input class="search-box" type="text" placeholder="ค้นหาชื่องาน / ผู้รับผิดชอบ..." id="taskSearch" oninput="renderTasks()">
+      <select class="fselect" id="priFilter" onchange="renderTasks()">
+        <option value="">Priority: ทั้งหมด</option>
+        <option>High</option><option>Medium</option><option>Low</option>
+      </select>
+      <select class="fselect" id="statFilter" onchange="renderTasks()">
+        <option value="">Status: ทั้งหมด</option>
+        <option>In Progress</option><option>To Do</option><option>Done</option>
+      </select>
+      <button class="btn btn-primary" onclick="renderTasks()">รีเฟรช</button>
+      <span class="count-label" id="taskCount"></span>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th style="width:32px">#</th>
+          <th style="width:28%">ชื่องาน / Task</th>
+          <th style="width:17%">ผู้รับผิดชอบ</th>
+          <th style="width:12%">หมวดหมู่</th>
+          <th style="width:9%">Priority</th>
+          <th style="width:10%">Status</th>
+          <th style="width:10%">Due Date</th>
+          <th style="width:9%">% คืบหน้า</th>
+          <th style="width:6%"></th>
+        </tr></thead>
+        <tbody id="taskBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Page: Dashboard ── -->
+  <div class="page" id="page-dashboard">
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-label">งานทั้งหมด</div><div class="stat-val" id="d-total">0</div></div>
+      <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-val c-blue" id="d-inprog">0</div></div>
+      <div class="stat-card"><div class="stat-label">Done</div><div class="stat-val c-green" id="d-done">0</div></div>
+      <div class="stat-card"><div class="stat-label">Priority High</div><div class="stat-val c-red" id="d-high">0</div></div>
+      <div class="stat-card"><div class="stat-label">คืบหน้าเฉลี่ย</div><div class="stat-val c-green" id="d-avg">0%</div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="chart-card"><div class="chart-title">สถานะงาน</div><div class="chart-wrap"><canvas id="chartStatus"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">Priority ของงาน</div><div class="chart-wrap"><canvas id="chartPriority"></canvas></div></div>
+    </div>
+    <div class="dash-grid">
+      <div class="chart-card"><div class="chart-title">ความคืบหน้าแต่ละงาน</div><div class="chart-wrap" style="height:240px"><canvas id="chartProgress"></canvas></div></div>
+      <div class="chart-card"><div class="chart-title">งานแยกตามหมวดหมู่</div><div class="chart-wrap"><canvas id="chartGroup"></canvas></div></div>
+    </div>
+  </div>
+
+  <!-- ── Page: Weekly Report ── -->
+  <div class="page" id="page-report">
+    <div class="report-header">
+      <div class="report-title">📊 รายงานความคืบหน้าประจำสัปดาห์</div>
+      <div class="report-sub" id="reportDate">งานสารสนเทศ กองพัฒนานักศึกษา มหาวิทยาลัยสงขลานครินทร์ · ปีการศึกษา 2568</div>
+
+      <div class="report-stats">
+        <div class="rstat"><div class="rstat-val" id="r-total">0</div><div class="rstat-label">งานทั้งหมด</div></div>
+        <div class="rstat"><div class="rstat-val" id="r-inprog">0</div><div class="rstat-label">In Progress</div></div>
+        <div class="rstat"><div class="rstat-val" id="r-todo">0</div><div class="rstat-label">To Do</div></div>
+        <div class="rstat"><div class="rstat-val" id="r-done">0</div><div class="rstat-label">Done</div></div>
+        <div class="rstat"><div class="rstat-val" id="r-avg">0%</div><div class="rstat-label">คืบหน้าเฉลี่ย</div></div>
+      </div>
+    </div>
+    <div class="report-section">
+      <div class="section-title">🔴 งานเร่งด่วน (High Priority)</div>
+      <table><thead><tr><th style="width:35%">ชื่องาน</th><th style="width:20%">ผู้รับผิดชอบ</th><th style="width:12%">Status</th><th style="width:10%">Due Date</th><th>% คืบหน้า</th></tr></thead>
+      <tbody id="reportHighBody"></tbody></table>
+    </div>
+    <div class="report-section">
+      <div class="section-title">🔵 งานกำลังดำเนินการ (In Progress)</div>
+      <table><thead><tr><th style="width:35%">ชื่องาน</th><th style="width:20%">ผู้รับผิดชอบ</th><th style="width:12%">Priority</th><th style="width:10%">Due Date</th><th>% คืบหน้า</th></tr></thead>
+      <tbody id="reportInProgBody"></tbody></table>
+    </div>
+    <div class="report-section">
+      <div class="section-title">⚪ งานรอดำเนินการ (To Do)</div>
+      <table><thead><tr><th style="width:35%">ชื่องาน</th><th style="width:20%">ผู้รับผิดชอบ</th><th style="width:12%">Priority</th><th style="width:10%">Due Date</th><th>% คืบหน้า</th></tr></thead>
+      <tbody id="reportTodoBody"></tbody></table>
+    </div>
+  </div>
+
+  <!-- ── Page: Manage Tasks ── -->
+  <div class="page" id="page-manage">
+    <div class="filter-bar">
+      <input class="search-box" type="text" placeholder="ค้นหางาน..." id="manageSearch" oninput="renderManage()">
+      <button class="btn btn-primary" onclick="openTaskModal()">+ เพิ่มงานใหม่</button>
+      <span class="count-label" id="manageCount"></span>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th style="width:32px">#</th>
+          <th style="width:30%">ชื่องาน</th>
+          <th style="width:17%">ผู้รับผิดชอบ</th>
+          <th style="width:12%">Priority</th>
+          <th style="width:11%">Status</th>
+          <th style="width:9%">% คืบหน้า</th>
+          <th style="width:10%">Due Date</th>
+          <th style="width:10%">จัดการ</th>
+        </tr></thead>
+        <tbody id="manageBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Page: Users ── -->
+  <div class="page" id="page-users">
+    <div class="filter-bar">
+      <input class="search-box" type="text" placeholder="ค้นหาผู้ใช้..." id="userSearch" oninput="renderUsers()">
+      <button class="btn btn-primary" onclick="openUserModal()">+ เพิ่มผู้ใช้</button>
+      <span class="count-label" id="userCount"></span>
+    </div>
+    <div class="grid-cards" id="usersGrid"></div>
+  </div>
+
+  <!-- ── Page: Roles ── -->
+  <div class="page" id="page-roles">
+    <div class="filter-bar">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">ผู้ใช้ที่ลงทะเบียนในระบบ</span>
+      <span class="count-label" id="rolesCount"></span>
+    </div>
+    <div style="padding:0 22px 22px">
+      <table class="data-table" style="width:100%">
+        <thead><tr>
+          <th>Email</th><th>ชื่อที่แสดง</th><th style="width:140px">สิทธิ์</th><th style="width:100px">บันทึก</th>
+        </tr></thead>
+        <tbody id="rolesBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Page: Projects ── -->
+  <div class="page" id="page-projects">
+    <div class="filter-bar">
+      <input class="search-box" type="text" placeholder="ค้นหาโปรเจกต์..." id="projSearch" oninput="renderProjects()">
+      <button class="btn btn-primary" onclick="openProjModal()">+ เพิ่มโปรเจกต์</button>
+      <span class="count-label" id="projCount"></span>
+    </div>
+    <div class="grid-cards" id="projectsGrid"></div>
+  </div>
+</div><!-- end .main -->
+</div><!-- end .app -->
+
+<!-- ════ USER VIEW ════ -->
+<div id="userView">
+  <div class="uv-header">
+    <div>
+      <div class="uv-greeting">สวัสดี, <span id="uv-name">...</span> 👋</div>
+      <div class="uv-sub" id="uv-sub">งานสารสนเทศ กองพัฒนานักศึกษา</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+      <div class="user-chip" id="userChip2" style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)">
+        <div class="avatar-sm" id="userInitial2">?</div>
+        <span id="userEmail2" style="color:#e0e7ff;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+        <button onclick="doLogout()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:14px;padding:0 0 0 4px" title="ออกจากระบบ">⏻</button>
+      </div>
+    </div>
+  </div>
+  <div class="uv-body">
+    <div class="stat-row">
+      <div class="stat-card"><div class="stat-label">งานของฉัน</div><div class="stat-val" id="uv-total">0</div></div>
+      <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-val c-blue" id="uv-inprog">0</div></div>
+      <div class="stat-card"><div class="stat-label">Done</div><div class="stat-val c-green" id="uv-done">0</div></div>
+      <div class="stat-card"><div class="stat-label">High Priority</div><div class="stat-val c-red" id="uv-high">0</div></div>
+      <div class="stat-card"><div class="stat-label">คืบหน้าเฉลี่ย</div><div class="stat-val c-green" id="uv-avg">0%</div></div>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th style="width:35%">ชื่องาน</th>
+          <th style="width:12%">Priority</th>
+          <th style="width:12%">Status</th>
+          <th style="width:11%">Due Date</th>
+          <th style="width:18%">% คืบหน้า</th>
+          <th style="width:12%">อัปเดต</th>
+        </tr></thead>
+        <tbody id="uv-taskBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL: Progress Update (User) ════ -->
+<div class="modal-overlay" id="progressModal">
+  <div class="modal" style="width:400px">
+    <div class="modal-header">
+      <span class="modal-title">อัปเดตความคืบหน้า</span>
+      <button class="modal-close" onclick="closeModal('progressModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="pm-id">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:16px;line-height:1.4" id="pm-name"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Status</label>
+          <select id="pm-status">
+            <option>To Do</option><option>In Progress</option><option>Done</option>
+          </select>
+        </div>
+        <div class="form-group"><label>% ความคืบหน้า</label>
+          <input type="number" id="pm-progress" min="0" max="100" value="0">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:4px"><label>หมายเหตุ</label>
+        <textarea id="pm-note" placeholder="หมายเหตุเพิ่มเติม..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('progressModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveProgress()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL: Task ════ -->
+<div class="modal-overlay" id="taskModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="taskModalTitle">เพิ่มงานใหม่</span>
+      <button class="modal-close" onclick="closeModal('taskModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="taskEditId">
+      <div class="form-row full"><div class="form-group"><label>ชื่องาน / Task *</label><input type="text" id="f-name" placeholder="ระบุชื่องาน..."></div></div>
+      <div class="form-row">
+        <div class="form-group"><label>มอบหมายให้ *</label>
+          <select id="f-assignee"><option value="">-- เลือกผู้รับผิดชอบ --</option></select>
+        </div>
+        <div class="form-group"><label>หมวดหมู่</label>
+          <select id="f-group"><option>ระบบสารสนเทศ</option><option>พัฒนา App</option><option>เว็บไซต์</option><option>ประเมินผล</option><option>เอกสาร</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Priority</label>
+          <select id="f-priority"><option>Medium</option><option>High</option><option>Low</option></select>
+        </div>
+        <div class="form-group"><label>Status</label>
+          <select id="f-status"><option>To Do</option><option>In Progress</option><option>Done</option></select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Due Date</label><input type="date" id="f-due"></div>
+        <div class="form-group"><label>% ความคืบหน้า (0–100)</label><input type="number" id="f-progress" min="0" max="100" value="0"></div>
+      </div>
+      <div class="form-row full"><div class="form-group"><label>หมายเหตุ</label><textarea id="f-note" placeholder="หมายเหตุเพิ่มเติม..."></textarea></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('taskModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveTask()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL: User ════ -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="userModalTitle">เพิ่มผู้ใช้</span>
+      <button class="modal-close" onclick="closeModal('userModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="userEditId">
+      <div class="form-row">
+        <div class="form-group"><label>ชื่อ-สกุล *</label><input type="text" id="u-name" placeholder="ชื่อ-สกุล..."></div>
+        <div class="form-group"><label>ตำแหน่ง</label><input type="text" id="u-role" placeholder="ตำแหน่งงาน..."></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>อีเมล</label><input type="email" id="u-email" placeholder="email@psu.ac.th"></div>
+        <div class="form-group"><label>แผนก / งาน</label><input type="text" id="u-dept" placeholder="ชื่อแผนก..."></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('userModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveUser()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL: Project ════ -->
+<div class="modal-overlay" id="projModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="projModalTitle">เพิ่มโปรเจกต์</span>
+      <button class="modal-close" onclick="closeModal('projModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="projEditId">
+      <div class="form-row full"><div class="form-group"><label>ชื่อโปรเจกต์ *</label><input type="text" id="p-name" placeholder="ชื่อโปรเจกต์..."></div></div>
+      <div class="form-row">
+        <div class="form-group"><label>หัวหน้าโปรเจกต์</label><input type="text" id="p-owner" placeholder="ชื่อหัวหน้า..."></div>
+        <div class="form-group"><label>หมวดหมู่</label><input type="text" id="p-group" placeholder="ประเภทโปรเจกต์..."></div>
+      </div>
+      <div class="form-row full"><div class="form-group"><label>คำอธิบาย</label><textarea id="p-desc" placeholder="รายละเอียดโปรเจกต์..."></textarea></div></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('projModal')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveProject()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════
+//  SUPABASE CONFIG  ← แก้ตรงนี้
+// ════════════════════════════════
+const SUPABASE_URL = 'https://qgasixwvwegtsoxuflsg.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_umjMm3iNjNcXYKMDrHFAgA_gC0vGfpW';
+
+const _configured = !SUPABASE_URL.includes('YOUR_PROJECT');
+if (!_configured) document.getElementById('configBanner').style.display = 'block';
+
+const { createClient } = supabase;
+const db = _configured ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+// ════════════════════════════════
+//  AUTH
+// ════════════════════════════════
+let currentUser = null;
+let authMode = 'login';
+
+function togglePass(fieldId, btn) {
+  const f = document.getElementById(fieldId);
+  const show = f.type === 'password';
+  f.type = show ? 'text' : 'password';
+  btn.innerHTML = show
+    ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2l12 12M6.5 6.6A2 2 0 009.4 9.5M4.2 4.3C2.5 5.4 1.3 6.8 1 8c1.5 3.5 4 5.5 7 5.5a7 7 0 003.8-1.2M7 3.6A7 7 0 0115 8c-.3 1-.9 2-1.7 2.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8C2.5 4.5 5 2.5 8 2.5s5.5 2 7 5.5c-1.5 3.5-4 5.5-7 5.5S2.5 11.5 1 8z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/></svg>`;
+}
+
+function switchTab(mode) {
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
+  document.getElementById('confirmWrap').style.display = mode==='signup' ? 'block' : 'none';
+  document.getElementById('authBtn').textContent = mode==='login' ? 'เข้าสู่ระบบ' : 'สมัครใช้งาน';
+  document.getElementById('authError').textContent = '';
+}
+
+async function doAuth() {
+  const email    = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const confirm  = document.getElementById('authConfirm').value;
+  const errEl    = document.getElementById('authError');
+  errEl.textContent = '';
+
+  if (!email.endsWith('@psu.ac.th')) { errEl.textContent = 'กรุณาใช้ email @psu.ac.th เท่านั้น'; return; }
+  if (password.length < 6)           { errEl.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; return; }
+  if (authMode==='signup' && password !== confirm) { errEl.textContent = 'รหัสผ่านไม่ตรงกัน'; return; }
+
+  document.getElementById('authBtn').textContent = 'กำลังดำเนินการ...';
+  document.getElementById('authBtn').disabled = true;
+
+  const { error } = authMode === 'login'
+    ? await db.auth.signInWithPassword({ email, password })
+    : await db.auth.signUp({ email, password });
+
+  document.getElementById('authBtn').disabled = false;
+  switchTab(authMode);
+
+  if (error) { errEl.textContent = error.message; return; }
+  if (authMode === 'signup') { errEl.style.color='var(--green)'; errEl.textContent = 'สมัครสำเร็จ! กรุณาเข้าสู่ระบบ'; switchTab('login'); }
+}
+
+async function doLogout() {
+  await db.auth.signOut();
+  currentUser = null;
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('adminView').style.display   = 'none';
+  document.getElementById('userView').style.display    = 'none';
+  document.getElementById('userChip').style.display    = 'none';
+}
+
+async function setUserUI(user) {
+  currentUser = user;
+  const email = user.email || '';
+  const initial = email.substring(0, 2).toUpperCase();
+
+  // ดึง role จาก SECURITY DEFINER function (bypass RLS)
+  const { data: roleData } = await db.rpc('get_my_role');
+  // ดึง display_name จาก profiles
+  const { data: profile } = await db.from('profiles').select('display_name').eq('id', user.id).maybeSingle();
+  currentUser.role         = roleData || 'user';
+  currentUser.display_name = profile?.display_name || email.split('@')[0];
+
+  // Admin topbar
+  document.getElementById('userInitial').textContent = initial;
+  document.getElementById('userEmail').textContent   = email;
+  document.getElementById('userChip').style.display  = 'flex';
+  document.getElementById('loginScreen').style.display = 'none';
+
+  if (currentUser.role === 'admin') {
+    document.getElementById('adminView').style.display = 'flex';
+    document.getElementById('userView').style.display  = 'none';
+    initData();
+  } else {
+    document.getElementById('adminView').style.display = 'none';
+    document.getElementById('userView').style.display  = 'flex';
+    // User view topbar
+    document.getElementById('uv-name').textContent    = currentUser.display_name;
+    document.getElementById('userInitial2').textContent = initial;
+    document.getElementById('userEmail2').textContent  = email;
+    initUserView();
+  }
+}
+
+// ════ USER VIEW ════
+let myTasks = [];
+async function initUserView() {
+  showLoading(true);
+  const { data, error } = await db.from('tasks').select('*').eq('assigned_email', currentUser.email).order('id');
+  myTasks = data || [];
+  showLoading(false);
+  renderUserView();
+}
+
+function renderUserView() {
+  const s = calcStats(myTasks);
+  document.getElementById('uv-total').textContent = s.total;
+  document.getElementById('uv-inprog').textContent = s.inprog;
+  document.getElementById('uv-done').textContent   = s.done;
+  document.getElementById('uv-high').textContent   = s.high;
+  document.getElementById('uv-avg').textContent    = s.avg + '%';
+  document.getElementById('uv-taskBody').innerHTML = myTasks.length
+    ? myTasks.map(t => `
+      <tr class="${t.priority==='High'?'row-urgent':''}">
+        <td><div class="task-name" style="cursor:default">${t.name}</div>
+            ${t.note ? `<div class="cell-muted" style="font-size:10px;margin-top:2px">${t.note}</div>` : ''}</td>
+        <td>${priBadge(t.priority)}</td>
+        <td>${statBadge(t.status)}</td>
+        <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
+        <td>${progBar(t.progress)}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="openProgressModal(${t.id})">อัปเดต</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีงานที่ได้รับมอบหมาย</td></tr>';
+}
+
+function openProgressModal(id) {
+  const t = myTasks.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('pm-id').value       = id;
+  document.getElementById('pm-name').textContent = t.name;
+  document.getElementById('pm-status').value   = t.status;
+  document.getElementById('pm-progress').value  = t.progress;
+  document.getElementById('pm-note').value      = t.note || '';
+  document.getElementById('progressModal').classList.add('open');
+}
+
+async function saveProgress() {
+  const id  = document.getElementById('pm-id').value;
+  const obj = {
+    status:   document.getElementById('pm-status').value,
+    progress: parseInt(document.getElementById('pm-progress').value) || 0,
+    note:     document.getElementById('pm-note').value,
+  };
+  const { error } = await db.from('tasks').update(obj).eq('id', id);
+  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+  const idx = myTasks.findIndex(t => t.id == id);
+  myTasks[idx] = { ...myTasks[idx], ...obj };
+  closeModal('progressModal');
+  renderUserView();
+}
+
+// ════════════════════════════════
+//  IN-MEMORY STORE
+// ════════════════════════════════
+let tasks = [], users = [], projects = [];
+
+// ════════════════════════════════
+//  INIT — โหลดข้อมูลจาก Supabase
+// ════════════════════════════════
+async function initData() {
+  showLoading(true);
+  try {
+    const [tr, ur, pr] = await Promise.all([
+      db.from('tasks').select('*').order('id'),
+      db.from('users').select('*').order('id'),
+      db.from('projects').select('*').order('id'),
+    ]);
+    if (tr.error) throw tr.error;
+    tasks    = tr.data || [];
+    users    = ur.data || [];
+    projects = (pr.data || []).map(p => ({...p, desc: p.description}));
+  } catch(e) {
+    alert('❌ เชื่อมต่อ Supabase ไม่ได้\n' + e.message);
+  }
+  showLoading(false);
+  renderTasks();
+}
+
+async function initAuth() {
+  const { data: { session } } = await db.auth.getSession();
+  if (session?.user) await setUserUI(session.user);
+  db.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) await setUserUI(session.user);
+  });
+}
+
+function canEdit(task) {
+  if (!currentUser) return false;
+  if (!task.user_id) return true;               // งานเก่าที่ยังไม่มี owner
+  return task.user_id === currentUser.id;
+}
+
+function showLoading(v) {
+  document.getElementById('loadingOverlay').style.display = v ? 'flex' : 'none';
+}
+
+// ════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════
+const pageTitles = {tasks:"มุมมองติดตามงาน", dashboard:"Dashboard", report:"Weekly Status Report", manage:"จัดการงาน", users:"จัดการผู้ใช้", projects:"จัดการโปรเจกต์", roles:"จัดการสิทธิ์"};
+let chartsInit = false;
+
+function navigate(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  const items = document.querySelectorAll('.nav-item');
+  items.forEach(n => { if(n.getAttribute('onclick') === `navigate('${page}')`) n.classList.add('active'); });
+  document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+  if(page === 'tasks')     renderTasks();
+  if(page === 'manage')    renderManage();
+  if(page === 'users')     renderUsers();
+  if(page === 'projects')  renderProjects();
+  if(page === 'report')    renderReport();
+  if(page === 'dashboard') renderDashboard();
+  if(page === 'roles')     renderRoles();
+}
+
+// ════════════════════════════════
+//  HELPERS
+// ════════════════════════════════
+function priBadge(p) {
+  const cls = {High:'b-high',Medium:'b-medium',Low:'b-low'}[p]||'b-low';
+  const dc  = {High:'d-high',Medium:'d-medium',Low:'d-low'}[p]||'d-low';
+  return `<span class="badge ${cls}"><span class="dot ${dc}"></span>${p}</span>`;
+}
+function statBadge(s) {
+  const cls = {'In Progress':'b-inprog','To Do':'b-todo','Done':'b-done'}[s]||'b-todo';
+  const dc  = {'In Progress':'d-inprog','To Do':'d-todo','Done':'d-done'}[s]||'d-todo';
+  return `<span class="badge ${cls}"><span class="dot ${dc}"></span>${s}</span>`;
+}
+function progBar(v) {
+  return `<div class="prog-wrap"><div class="prog-bar"><div class="prog-fill" style="width:${v}%"></div></div><span class="prog-text">${v}%</span></div>`;
+}
+function fmtDate(d) {
+  if(!d) return '-';
+  const months=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+  const dt = new Date(d);
+  return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()-1957+2500}`;
+}
+function calcStats(arr) {
+  const total=arr.length, inprog=arr.filter(t=>t.status==='In Progress').length;
+  const todo=arr.filter(t=>t.status==='To Do').length, done=arr.filter(t=>t.status==='Done').length;
+  const high=arr.filter(t=>t.priority==='High').length;
+  const avg = total ? Math.round(arr.reduce((s,t)=>s+t.progress,0)/total) : 0;
+  return {total,inprog,todo,done,high,avg};
+}
+function initials(name) {
+  const parts = name.trim().split(' ');
+  return parts.length>=2 ? (parts[0][0]+(parts[1][0]||'')).toUpperCase() : name.substring(0,2).toUpperCase();
+}
+function taskCount(uid) { return tasks.filter(t=>t.owner===uid).length; }
+
+// ════════════════════════════════
+//  TASK TRACKING PAGE
+// ════════════════════════════════
+function renderTasks() {
+  const q   = (document.getElementById('taskSearch').value||'').toLowerCase();
+  const pri = document.getElementById('priFilter').value;
+  const st  = document.getElementById('statFilter').value;
+  const filtered = tasks.filter(t =>
+    (!q || t.name.toLowerCase().includes(q) || t.owner.toLowerCase().includes(q)) &&
+    (!pri || t.priority===pri) && (!st || t.status===st)
+  );
+  const st2 = calcStats(tasks);
+  document.getElementById('s-total').textContent = st2.total;
+  document.getElementById('s-inprog').textContent = st2.inprog;
+  document.getElementById('s-todo').textContent = st2.todo;
+  document.getElementById('s-high').textContent = st2.high;
+  document.getElementById('s-avg').textContent = st2.avg+'%';
+  document.getElementById('urgentBadge').textContent = st2.high;
+  document.getElementById('taskCount').textContent = `แสดง ${filtered.length} / ${tasks.length} รายการ`;
+  document.getElementById('taskBody').innerHTML = filtered.map((t,i) => `
+    <tr class="${t.priority==='High'?'row-urgent':''}">
+      <td style="color:var(--text3);font-size:11px;text-align:center">${t.id}</td>
+      <td><div class="task-name" title="${t.name}">${t.name}</div></td>
+      <td><div class="cell-muted">${t.owner}</div></td>
+      <td><div class="cell-muted">${t.group}</div></td>
+      <td>${priBadge(t.priority)}</td>
+      <td>${statBadge(t.status)}</td>
+      <td><div class="cell-muted" style="white-space:nowrap">${fmtDate(t.due)}</div></td>
+      <td>${progBar(t.progress)}</td>
+      <td>${canEdit(t) ? `<button class="btn btn-sm btn-primary" onclick="openTaskModal(${t.id})">แก้ไข</button>` : ''}</td>
+    </tr>`).join('');
+}
+
+// ════════════════════════════════
+//  MANAGE TASKS PAGE
+// ════════════════════════════════
+function renderManage() {
+  const q = (document.getElementById('manageSearch').value||'').toLowerCase();
+  const filtered = tasks.filter(t => !q || t.name.toLowerCase().includes(q) || t.owner.toLowerCase().includes(q));
+  document.getElementById('manageCount').textContent = `${filtered.length} รายการ`;
+  document.getElementById('manageBody').innerHTML = filtered.map(t => `
+    <tr>
+      <td style="color:var(--text3);font-size:11px;text-align:center">${t.id}</td>
+      <td><div class="task-name">${t.name}</div></td>
+      <td><div class="cell-muted">${t.owner}</div></td>
+      <td>${priBadge(t.priority)}</td>
+      <td>${statBadge(t.status)}</td>
+      <td>${progBar(t.progress)}</td>
+      <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
+      <td style="display:flex;gap:4px">
+        ${canEdit(t) ? `<button class="btn btn-sm btn-primary" onclick="openTaskModal(${t.id})">แก้ไข</button>` : ''}
+        ${canEdit(t) ? `<button class="btn btn-sm btn-danger" onclick="deleteTask(${t.id})">ลบ</button>` : ''}
+      </td>
+    </tr>`).join('');
+}
+
+// ════════════════════════════════
+//  TASK MODAL
+// ════════════════════════════════
+async function openTaskModal(id) {
+  // โหลด profiles เพื่อ populate dropdown
+  const { data: profs } = await db.from('profiles').select('email, display_name').order('email');
+  const sel = document.getElementById('f-assignee');
+  sel.innerHTML = '<option value="">-- เลือกผู้รับผิดชอบ --</option>' +
+    (profs||[]).map(p => `<option value="${p.email}">${p.display_name || p.email}</option>`).join('');
+
+  document.getElementById('taskEditId').value = id||'';
+  if(id) {
+    const t = tasks.find(x=>x.id===id);
+    document.getElementById('taskModalTitle').textContent = 'แก้ไขงาน';
+    document.getElementById('f-name').value     = t.name;
+    sel.value                                   = t.assigned_email || '';
+    document.getElementById('f-group').value    = t.group;
+    document.getElementById('f-priority').value = t.priority;
+    document.getElementById('f-status').value   = t.status;
+    document.getElementById('f-due').value      = t.due || '';
+    document.getElementById('f-progress').value = t.progress;
+    document.getElementById('f-note').value     = t.note||'';
+  } else {
+    document.getElementById('taskModalTitle').textContent = 'เพิ่มงานใหม่';
+    ['f-name','f-note'].forEach(x=>document.getElementById(x).value='');
+    sel.value = '';
+    document.getElementById('f-progress').value = 0;
+    document.getElementById('f-due').value = '';
+  }
+  document.getElementById('taskModal').classList.add('open');
+}
+
+async function saveTask() {
+  const name           = document.getElementById('f-name').value.trim();
+  const assigned_email = document.getElementById('f-assignee').value;
+  const assigneeOption = document.getElementById('f-assignee').selectedOptions[0];
+  const owner          = assigneeOption?.text || assigned_email;
+  if(!name||!assigned_email){alert('กรุณากรอกชื่องานและเลือกผู้รับผิดชอบ');return;}
+  const editId = document.getElementById('taskEditId').value;
+  const obj = {
+    name, owner, assigned_email,
+    group:    document.getElementById('f-group').value,
+    priority: document.getElementById('f-priority').value,
+    status:   document.getElementById('f-status').value,
+    due:      document.getElementById('f-due').value || null,
+    progress: parseInt(document.getElementById('f-progress').value)||0,
+    note:     document.getElementById('f-note').value,
+  };
+  if(editId) {
+    const {error} = await db.from('tasks').update(obj).eq('id', editId);
+    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
+    const idx = tasks.findIndex(t=>t.id==editId);
+    tasks[idx] = {...tasks[idx],...obj};
+  } else {
+    const {data, error} = await db.from('tasks').insert([{...obj, user_id: currentUser?.id}]).select().single();
+    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
+    tasks.push(data);
+  }
+  closeModal('taskModal');
+  renderTasks(); renderManage();
+}
+async function deleteTask(id) {
+  if(!confirm('ต้องการลบงานนี้?')) return;
+  const {error} = await db.from('tasks').delete().eq('id', id);
+  if(error){alert('ลบไม่สำเร็จ: '+error.message);return;}
+  tasks = tasks.filter(t=>t.id!==id);
+  renderManage(); renderTasks();
+}
+
+// ════════════════════════════════
+//  USERS PAGE
+// ════════════════════════════════
+function renderUsers() {
+  const q = (document.getElementById('userSearch').value||'').toLowerCase();
+  const filtered = users.filter(u => !q || u.name.toLowerCase().includes(q) || u.dept.toLowerCase().includes(q));
+  document.getElementById('userCount').textContent = `${filtered.length} คน`;
+  document.getElementById('usersGrid').innerHTML = filtered.map(u => {
+    const tc = tasks.filter(t=>t.owner===u.name).length;
+    const ip = tasks.filter(t=>t.owner===u.name&&t.status==='In Progress').length;
+    return `
+    <div class="user-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div class="avatar">${initials(u.name)}</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">${u.name}</div>
+          <div style="font-size:11px;color:var(--text2)">${u.role}</div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px">${u.email}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:10px">📁 ${u.dept}</div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);border-top:var(--border-half);padding-top:8px">
+        <span>งานทั้งหมด: <strong>${tc}</strong></span>
+        <span>In Progress: <strong style="color:var(--blue)">${ip}</strong></span>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:8px">
+        <button class="btn btn-sm" style="flex:1" onclick="openUserModal(${u.id})">แก้ไข</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteUser(${u.id})">ลบ</button>
+      </div>
+    </div>`}).join('');
+}
+function openUserModal(id) {
+  document.getElementById('userEditId').value = id||'';
+  if(id) {
+    const u = users.find(x=>x.id===id);
+    document.getElementById('userModalTitle').textContent = 'แก้ไขผู้ใช้';
+    document.getElementById('u-name').value = u.name;
+    document.getElementById('u-role').value = u.role;
+    document.getElementById('u-email').value = u.email;
+    document.getElementById('u-dept').value = u.dept;
+  } else {
+    document.getElementById('userModalTitle').textContent = 'เพิ่มผู้ใช้';
+    ['u-name','u-role','u-email','u-dept'].forEach(x=>document.getElementById(x).value='');
+  }
+  document.getElementById('userModal').classList.add('open');
+}
+async function saveUser() {
+  const name = document.getElementById('u-name').value.trim();
+  if(!name){alert('กรุณากรอกชื่อ');return;}
+  const editId = document.getElementById('userEditId').value;
+  const obj = {name, role:document.getElementById('u-role').value, email:document.getElementById('u-email').value, dept:document.getElementById('u-dept').value};
+  if(editId) {
+    const {error} = await db.from('users').update(obj).eq('id', editId);
+    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
+    const idx=users.findIndex(u=>u.id==editId); users[idx]={...users[idx],...obj};
+  } else {
+    const {data, error} = await db.from('users').insert([obj]).select().single();
+    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
+    users.push(data);
+  }
+  closeModal('userModal'); renderUsers();
+}
+async function deleteUser(id) {
+  if(!confirm('ต้องการลบผู้ใช้นี้?')) return;
+  const {error} = await db.from('users').delete().eq('id', id);
+  if(error){alert('ลบไม่สำเร็จ: '+error.message);return;}
+  users = users.filter(u=>u.id!==id); renderUsers();
+}
+
+// ════════════════════════════════
+//  ROLES PAGE
+// ════════════════════════════════
+async function renderRoles() {
+  const { data, error } = await db.from('profiles').select('id, email, display_name, role').order('email');
+  if (error) { alert('โหลดข้อมูลไม่สำเร็จ: ' + error.message); return; }
+  document.getElementById('rolesCount').textContent = `${data.length} คน`;
+  document.getElementById('rolesBody').innerHTML = data.map(p => `
+    <tr>
+      <td>${p.email}</td>
+      <td>${p.display_name || '-'}</td>
+      <td>
+        <select id="role_${p.id}" style="border:var(--border);border-radius:var(--r8);padding:4px 8px;font-size:12px;background:var(--surface)">
+          <option value="user"  ${p.role==='user'  ? 'selected':''}>user</option>
+          <option value="admin" ${p.role==='admin' ? 'selected':''}>admin</option>
+        </select>
+      </td>
+      <td><button class="btn btn-sm btn-primary" onclick="setRole('${p.id}')">บันทึก</button></td>
+    </tr>`).join('');
+}
+async function setRole(profileId) {
+  const role = document.getElementById('role_' + profileId).value;
+  const { error } = await db.from('profiles').update({ role }).eq('id', profileId);
+  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+  alert('อัปเดตสิทธิ์สำเร็จ');
+}
+
+// ════════════════════════════════
+//  PROJECTS PAGE
+// ════════════════════════════════
+function renderProjects() {
+  const q = (document.getElementById('projSearch').value||'').toLowerCase();
+  const filtered = projects.filter(p => !q || p.name.toLowerCase().includes(q));
+  document.getElementById('projCount').textContent = `${filtered.length} โปรเจกต์`;
+  document.getElementById('projectsGrid').innerHTML = filtered.map(p => {
+    const related = tasks.filter(t=>t.group===p.name);
+    const avg = related.length ? Math.round(related.reduce((s,t)=>s+t.progress,0)/related.length) : 0;
+    return `
+    <div class="proj-card">
+      <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <div style="font-size:13px;font-weight:600">${p.name}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">${p.group}</div>
+        </div>
+        <span class="badge b-inprog" style="font-size:10px">${related.length} งาน</span>
+      </div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;line-height:1.5">${p.desc}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">หัวหน้า: ${p.owner}</div>
+      <div class="proj-bar"><div class="proj-fill" style="width:${avg}%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
+        <span>คืบหน้าเฉลี่ย</span><span style="color:var(--blue);font-weight:600">${avg}%</span>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:10px">
+        <button class="btn btn-sm" style="flex:1" onclick="openProjModal(${p.id})">แก้ไข</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteProject(${p.id})">ลบ</button>
+      </div>
+    </div>`}).join('');
+}
+function openProjModal(id) {
+  document.getElementById('projEditId').value = id||'';
+  if(id) {
+    const p = projects.find(x=>x.id===id);
+    document.getElementById('projModalTitle').textContent = 'แก้ไขโปรเจกต์';
+    document.getElementById('p-name').value = p.name;
+    document.getElementById('p-owner').value = p.owner;
+    document.getElementById('p-group').value = p.group;
+    document.getElementById('p-desc').value = p.desc;
+  } else {
+    document.getElementById('projModalTitle').textContent = 'เพิ่มโปรเจกต์';
+    ['p-name','p-owner','p-group','p-desc'].forEach(x=>document.getElementById(x).value='');
+  }
+  document.getElementById('projModal').classList.add('open');
+}
+async function saveProject() {
+  const name = document.getElementById('p-name').value.trim();
+  if(!name){alert('กรุณากรอกชื่อโปรเจกต์');return;}
+  const editId = document.getElementById('projEditId').value;
+  const obj = {name, owner:document.getElementById('p-owner').value, group:document.getElementById('p-group').value, desc:document.getElementById('p-desc').value};
+  const dbObj = {name: obj.name, owner: obj.owner, group: obj.group, description: obj.desc};
+  if(editId) {
+    const {error} = await db.from('projects').update(dbObj).eq('id', editId);
+    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
+    const idx=projects.findIndex(p=>p.id==editId); projects[idx]={...projects[idx],...obj};
+  } else {
+    const {data, error} = await db.from('projects').insert([dbObj]).select().single();
+    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
+    projects.push({...data, desc: data.description});
+  }
+  closeModal('projModal'); renderProjects();
+}
+async function deleteProject(id) {
+  if(!confirm('ต้องการลบโปรเจกต์นี้?')) return;
+  const {error} = await db.from('projects').delete().eq('id', id);
+  if(error){alert('ลบไม่สำเร็จ: '+error.message);return;}
+  projects = projects.filter(p=>p.id!==id); renderProjects();
+}
+
+// ════════════════════════════════
+//  WEEKLY REPORT
+// ════════════════════════════════
+function renderReport() {
+  const s = calcStats(tasks);
+  document.getElementById('r-total').textContent = s.total;
+  document.getElementById('r-inprog').textContent = s.inprog;
+  document.getElementById('r-todo').textContent = s.todo;
+  document.getElementById('r-done').textContent = s.done;
+  document.getElementById('r-avg').textContent = s.avg+'%';
+  const now = new Date();
+  const months=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+  document.getElementById('reportDate').textContent =
+    `รายงานประจำสัปดาห์ · ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()+543} · งานสารสนเทศ กองพัฒนานักศึกษา มหาวิทยาลัยสงขลานครินทร์ · ปีการศึกษา ${AY}`;
+  const highTasks   = tasks.filter(t=>t.priority==='High');
+  const inProgTasks = tasks.filter(t=>t.status==='In Progress');
+  const todoTasks   = tasks.filter(t=>t.status==='To Do');
+  function rows(arr, showStatus) {
+    return arr.map(t=>`<tr>
+      <td><div class="task-name">${t.name}</div></td>
+      <td><div class="cell-muted">${t.owner}</div></td>
+      <td>${showStatus ? statBadge(t.status) : priBadge(t.priority)}</td>
+      <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
+      <td>${progBar(t.progress)}</td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:14px">ไม่มีข้อมูล</td></tr>';
+  }
+  document.getElementById('reportHighBody').innerHTML   = rows(highTasks, true);
+  document.getElementById('reportInProgBody').innerHTML = rows(inProgTasks, false);
+  document.getElementById('reportTodoBody').innerHTML   = rows(todoTasks, false);
+}
+
+// ════════════════════════════════
+//  DASHBOARD CHARTS
+// ════════════════════════════════
+let chartInstances = {};
+function destroyChart(id) { if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id];} }
+
+function renderDashboard() {
+  const s = calcStats(tasks);
+  document.getElementById('d-total').textContent = s.total;
+  document.getElementById('d-inprog').textContent = s.inprog;
+  document.getElementById('d-done').textContent = s.done;
+  document.getElementById('d-high').textContent = s.high;
+  document.getElementById('d-avg').textContent = s.avg+'%';
+
+  const palette = ['#1a56db','#f59e0b','#10b981','#e53935','#6366f1','#ec4899'];
+
+  // Status donut
+  destroyChart('chartStatus');
+  chartInstances['chartStatus'] = new Chart(document.getElementById('chartStatus'), {
+    type:'doughnut',
+    data:{labels:['In Progress','To Do','Done'],
+      datasets:[{data:[s.inprog,s.todo,s.done],backgroundColor:['#1a56db','#9ca3af','#10b981'],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}
+  });
+
+  // Priority donut
+  destroyChart('chartPriority');
+  chartInstances['chartPriority'] = new Chart(document.getElementById('chartPriority'), {
+    type:'doughnut',
+    data:{labels:['High','Medium','Low'],
+      datasets:[{data:[s.high, tasks.filter(t=>t.priority==='Medium').length, tasks.filter(t=>t.priority==='Low').length],
+        backgroundColor:['#e53935','#f59e0b','#10b981'],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}
+  });
+
+  // Progress bar chart (top 8)
+  const top = [...tasks].sort((a,b)=>b.progress-a.progress).slice(0,8);
+  destroyChart('chartProgress');
+  chartInstances['chartProgress'] = new Chart(document.getElementById('chartProgress'), {
+    type:'bar',
+    data:{labels:top.map(t=>t.name.length>18?t.name.substring(0,18)+'…':t.name),
+      datasets:[{label:'% คืบหน้า',data:top.map(t=>t.progress),backgroundColor:'#1a56db',borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{x:{max:100,ticks:{font:{size:10}}},y:{ticks:{font:{size:10}}}}}
+  });
+
+  // Group bar chart
+  const groups = [...new Set(tasks.map(t=>t.group))];
+  const groupCounts = groups.map(g=>tasks.filter(t=>t.group===g).length);
+  destroyChart('chartGroup');
+  chartInstances['chartGroup'] = new Chart(document.getElementById('chartGroup'), {
+    type:'bar',
+    data:{labels:groups,
+      datasets:[{label:'จำนวนงาน',data:groupCounts,backgroundColor:palette,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{y:{ticks:{stepSize:1,font:{size:10}}},x:{ticks:{font:{size:10}}}}}
+  });
+}
+
+// ════════════════════════════════
+//  MODAL UTILS
+// ════════════════════════════════
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
+});
+
+// ════════════════════════════════
+//  CLOCK
+// ════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clockDisplay').textContent =
+    now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+' น.';
+}
+updateClock(); setInterval(updateClock, 10000);
+
+// ════════════════════════════════
+//  ACADEMIC YEAR (ปีการศึกษา)
+//  มิ.ย.–พ.ค. → ปีการศึกษา = BE ปัจจุบัน (ถ้า >= มิ.ย.) หรือ BE-1 (ถ้า < มิ.ย.)
+// ════════════════════════════════
+function academicYear() {
+  const now = new Date();
+  const be = now.getFullYear() + 543;
+  return now.getMonth() < 5 ? be - 1 : be; // month 0-indexed: 5 = มิ.ย.
+}
+const AY = academicYear();
+const ORG_SUFFIX = `งานสารสนเทศ กองพัฒนานักศึกษา มหาวิทยาลัยสงขลานครินทร์ · ปีการศึกษา ${AY}`;
+document.getElementById('pageSub').textContent = ORG_SUFFIX;
+document.getElementById('reportDate').textContent = ORG_SUFFIX;
+
+// ── Init ──
+initAuth();
+</script>
+</body>
+</html>
