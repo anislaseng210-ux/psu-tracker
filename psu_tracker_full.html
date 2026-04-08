@@ -1,7 +1,6 @@
 <!--
   PSU Tracker DB Migration (run in Supabase SQL Editor):
   ALTER TABLE tasks ADD COLUMN pm_comment VARCHAR(255) NULL;
-  -- เพิ่ม 'Pending Review' ในค่า status (ถ้าเป็น VARCHAR ไม่ต้องแก้เพิ่ม)
 -->
 <!DOCTYPE html>
 <html lang="th">
@@ -46,11 +45,6 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(
 .live-badge{display:flex;align-items:center;gap:4px;color:#1b8a5a;font-size:11px;font-weight:600}
 .live-dot{width:6px;height:6px;background:#22c55e;border-radius:50%;animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-
-/* ── Tabs ── */
-.tab-bar{display:flex;border-bottom:var(--border);background:var(--surface);padding:0 22px;flex-shrink:0}
-.tab{padding:8px 14px;font-size:12px;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent}
-.tab.active{color:var(--blue);border-bottom:2px solid var(--blue);font-weight:600}
 
 /* ── Pages ── */
 .page{display:none;flex:1;overflow-y:auto;padding:18px 22px;flex-direction:column;gap:14px}
@@ -143,7 +137,7 @@ textarea{resize:vertical;min-height:60px}
 .section-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;padding-bottom:6px;border-bottom:var(--border)}
 .report-section{background:var(--surface);border:var(--border-half);border-radius:var(--r12);padding:16px}
 
-/* ── Users / Projects ── */
+/* ── Projects ── */
 .grid-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .user-card{background:var(--surface);border:var(--border-half);border-radius:var(--r12);padding:14px}
 .avatar{width:40px;height:40px;border-radius:50%;background:var(--blue-light);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--blue);flex-shrink:0}
@@ -255,59 +249,39 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 
-  <!-- superadmin-only section -->
-  <div id="nav-section-admin" class="nav-section">จัดการ</div>
-  <div class="nav-item" id="nav-users" onclick="navigate('users')">
+  <div id="nav-section-admin" class="nav-section" style="display:none">การจัดการระบบ</div>
+  <div class="nav-item" id="nav-team" onclick="navigate('team')" style="display:none">
     <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><circle cx="6" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 13c0-2.8 2.2-5 5-5s5 2.2 5 5" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="5" r="2" stroke="currentColor" stroke-width="1.2"/><path d="M14 13c0-2-1.3-3.7-3-4.4" stroke="currentColor" stroke-width="1.2"/></svg>
-    จัดการผู้ใช้
-  </div>
-  <div class="nav-item" id="nav-roles" onclick="navigate('roles')">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M8 1l1.8 3.6L14 5.6l-3 2.9.7 4.1L8 10.5l-3.7 2.1.7-4.1-3-2.9 4.2-.6z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
-    จัดการสิทธิ์
+    จัดการทีม (Team)
   </div>
 
-  <div class="nav-section">โปรเจกต์ &amp; งาน</div>
-  <div class="nav-item" onclick="navigate('projects')">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
-    จัดการโปรเจกต์
-  </div>
-  <div class="nav-item" onclick="navigate('manage')">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-    จัดการงาน
-  </div>
-
-  <div class="nav-section">มุมมอง</div>
-  <div class="nav-item active" onclick="navigate('tasks')">
+  <div class="nav-section">งานและโครงการ</div>
+  <div class="nav-item active" id="nav-taskboard" onclick="navigate('taskboard')">
     <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="7" width="12" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="12" width="7" height="3" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
-    มุมมองติดตามงาน
-    <span class="nav-badge" id="urgentBadge">0</span>
-  </div>
-  <div class="nav-item" onclick="navigate('logs')">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 3h12v2H2zM2 7h10v2H2zM2 11h7v2H2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" fill="none"/></svg>
-    บันทึกประจำวัน
-  </div>
-  <div class="nav-item" onclick="navigate('report')">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 12L6 7l3 3 2-4 3 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    Weekly Status Report
-  </div>
-  <div class="nav-item" onclick="navigate('dashboard')">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M1 6h14M6 6v9" stroke="currentColor" stroke-width="1"/></svg>
-    Dashboard
-  </div>
-
-  <div class="nav-section" id="nav-section-pm" style="display:none">PM Dashboard</div>
-  <div class="nav-item" id="nav-review" onclick="navigate('review')" style="display:none">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    ตรวจรับงาน
+    กระดานติดตามงาน
     <span class="nav-badge" id="reviewBadge">0</span>
   </div>
-  <div class="nav-item" id="nav-standup" onclick="navigate('standup')" style="display:none">
-    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 3h12v2H2zM2 7h8v2H2zM2 11h10v2H2z" stroke="currentColor" stroke-width="1.2"/></svg>
-    ตรวจรายงานประจำวัน
+  <div class="nav-item" onclick="navigate('projects')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="9" y="9" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+    โปรเจกต์ทั้งหมด
+  </div>
+
+  <div class="nav-section">รายงานและการติดตาม</div>
+  <div class="nav-item" onclick="navigate('dailyreports')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 3h12v2H2zM2 7h10v2H2zM2 11h7v2H2z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" fill="none"/></svg>
+    รายงานการทำงานทีม
   </div>
   <div class="nav-item" id="nav-workload" onclick="navigate('workload')" style="display:none">
     <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M1 3h3v10H1zM6 6h3v7H6zM11 1h3v12h-3z" stroke="currentColor" stroke-width="1.2"/></svg>
     ภาระงานทีม
+  </div>
+  <div class="nav-item" onclick="navigate('report')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 12L6 7l3 3 2-4 3 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Weekly Report
+  </div>
+  <div class="nav-item" onclick="navigate('dashboard')">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M1 6h14M6 6v9" stroke="currentColor" stroke-width="1"/></svg>
+    Dashboard
   </div>
 </div>
 
@@ -315,7 +289,7 @@ textarea{resize:vertical;min-height:60px}
 <div class="main">
   <div class="topbar">
     <div>
-      <div class="page-title" id="pageTitle">มุมมองติดตามงาน</div>
+      <div class="page-title" id="pageTitle">กระดานติดตามงาน</div>
       <div class="page-sub" id="pageSub">งานสารสนเทศ กองพัฒนานักศึกษา มหาวิทยาลัยสงขลานครินทร์</div>
     </div>
     <div class="topbar-right">
@@ -329,29 +303,29 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 
-  <!-- ── Bottleneck Alert Banner ── -->
   <div id="bottleneckBanner" class="bottleneck-banner" style="display:none"></div>
 
-  <!-- ── Page: Task Tracking ── -->
-  <div class="page active" id="page-tasks">
+  <!-- ── Page: Task Board (Consolidated) ── -->
+  <div class="page active" id="page-taskboard">
     <div class="stat-row">
-      <div class="stat-card"><div class="stat-label">งานทั้งหมด</div><div class="stat-val" id="s-total">0</div><div class="stat-sub">รายการ</div></div>
-      <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-val c-blue" id="s-inprog">0</div><div class="stat-sub">กำลังดำเนินการ</div></div>
-      <div class="stat-card"><div class="stat-label">To Do</div><div class="stat-val" id="s-todo">0</div><div class="stat-sub">รอดำเนินการ</div></div>
-      <div class="stat-card"><div class="stat-label">Priority High</div><div class="stat-val c-red" id="s-high">0</div><div class="stat-sub">งานเร่งด่วน</div></div>
-      <div class="stat-card"><div class="stat-label">ความคืบหน้าเฉลี่ย</div><div class="stat-val c-green" id="s-avg">0%</div><div class="stat-sub">ภาพรวมทั้งหมด</div></div>
+      <div class="stat-card"><div class="stat-label">งานทั้งหมด</div><div class="stat-val" id="s-total">0</div></div>
+      <div class="stat-card"><div class="stat-label">In Progress</div><div class="stat-val c-blue" id="s-inprog">0</div></div>
+      <div class="stat-card"><div class="stat-label">Pending Review</div><div class="stat-val c-amber" id="s-pending">0</div></div>
+      <div class="stat-card"><div class="stat-label">Priority High</div><div class="stat-val c-red" id="s-high">0</div></div>
+      <div class="stat-card"><div class="stat-label">ภาพรวมความคืบหน้า</div><div class="stat-val c-green" id="s-avg">0%</div></div>
     </div>
     <div class="filter-bar">
-      <input class="search-box" type="text" placeholder="ค้นหาชื่องาน / ผู้รับผิดชอบ..." id="taskSearch" oninput="renderTasks()">
-      <select class="fselect" id="priFilter" onchange="renderTasks()">
+      <input class="search-box" type="text" placeholder="ค้นหาชื่องาน / ผู้รับผิดชอบ..." id="taskSearch" oninput="renderTaskBoard()">
+      <select class="fselect" id="priFilter" onchange="renderTaskBoard()">
         <option value="">Priority: ทั้งหมด</option>
         <option>High</option><option>Medium</option><option>Low</option>
       </select>
-      <select class="fselect" id="statFilter" onchange="renderTasks()">
+      <select class="fselect" id="statFilter" onchange="renderTaskBoard()">
         <option value="">Status: ทั้งหมด</option>
         <option>In Progress</option><option>To Do</option><option>Done</option><option>Pending Review</option>
       </select>
-      <button class="btn btn-primary" onclick="renderTasks()">รีเฟรช</button>
+      <button class="btn btn-primary" id="btnAddNewTask" onclick="openTaskModal()" style="display:none">+ เพิ่มงานใหม่</button>
+      <button class="btn" onclick="initData()">รีเฟรช</button>
       <span class="count-label" id="taskCount"></span>
     </div>
     <div class="card">
@@ -364,26 +338,49 @@ textarea{resize:vertical;min-height:60px}
           <th style="width:9%">Priority</th>
           <th style="width:10%">Status</th>
           <th style="width:10%">Due Date</th>
-          <th style="width:9%">% คืบหน้า</th>
-          <th style="width:6%"></th>
+          <th style="width:9%">คืบหน้า</th>
+          <th style="width:140px">จัดการ</th>
         </tr></thead>
         <tbody id="taskBody"></tbody>
       </table>
     </div>
   </div>
 
-  <!-- ── Page: Daily Logs ── -->
-  <div class="page" id="page-logs">
+  <!-- ── Page: Team Management (Consolidated) ── -->
+  <div class="page" id="page-team">
     <div class="filter-bar">
-      <span style="font-size:13px;font-weight:600;color:var(--text)">บันทึกประจำวันของทีม</span>
-      <input class="search-box" type="text" placeholder="ค้นหาชื่อ / คีย์เวิร์ด..." id="logsSearch" oninput="filterLogs()" style="max-width:260px">
-      <button class="btn btn-primary" onclick="renderDailyLogs()">รีเฟรช</button>
+      <input class="search-box" type="text" placeholder="ค้นหาชื่อ / แผนก / อีเมล..." id="teamSearch" oninput="renderTeam()">
+      <span class="count-label" id="teamCount"></span>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th style="width:40px"></th>
+          <th>ชื่อ-สกุล / ข้อมูลติดต่อ</th>
+          <th>แผนก / ตำแหน่ง</th>
+          <th style="width:160px">สิทธิ์การใช้งาน (Role)</th>
+          <th style="width:100px">จัดการ</th>
+        </tr></thead>
+        <tbody id="teamBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Page: Daily Reports (Consolidated) ── -->
+  <div class="page" id="page-dailyreports">
+    <div class="section-title">📅 สรุปรายงานประจำวัน (Stand-up Review)</div>
+    <div id="standupContainer" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px"></div>
+    
+    <div class="filter-bar">
+      <div class="section-title" style="margin:0;border:none">📋 ประวัติบันทึกการทำงาน</div>
+      <input class="search-box" type="text" placeholder="ค้นหาชื่อ / ข้อความ..." id="logsSearch" oninput="renderDailyReports()" style="max-width:260px">
+      <button class="btn btn-primary" onclick="initData()">รีเฟรช</button>
       <span class="count-label" id="logsCount"></span>
     </div>
     <div id="logsContainer" style="display:flex;flex-direction:column;gap:20px"></div>
   </div>
 
-  <!-- ── Page: Dashboard ── -->
+  <!-- ── Remaining Pages ── -->
   <div class="page" id="page-dashboard">
     <div class="stat-row">
       <div class="stat-card"><div class="stat-label">งานทั้งหมด</div><div class="stat-val" id="d-total">0</div></div>
@@ -402,7 +399,6 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 
-  <!-- ── Page: Weekly Report ── -->
   <div class="page" id="page-report">
     <div class="report-header">
       <div class="report-title">📊 รายงานความคืบหน้าประจำสัปดาห์</div>
@@ -436,103 +432,19 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 
-  <!-- ── Page: Manage Tasks ── -->
-  <div class="page" id="page-manage">
-    <div class="filter-bar">
-      <input class="search-box" type="text" placeholder="ค้นหางาน..." id="manageSearch" oninput="renderManage()">
-      <button class="btn btn-primary" onclick="openTaskModal()">+ เพิ่มงานใหม่</button>
-      <span class="count-label" id="manageCount"></span>
-    </div>
-    <div class="card">
-      <table>
-        <thead><tr>
-          <th style="width:32px">#</th>
-          <th style="width:30%">ชื่องาน</th>
-          <th style="width:17%">ผู้รับผิดชอบ</th>
-          <th style="width:12%">Priority</th>
-          <th style="width:11%">Status</th>
-          <th style="width:9%">% คืบหน้า</th>
-          <th style="width:10%">Due Date</th>
-          <th style="width:10%">จัดการ</th>
-        </tr></thead>
-        <tbody id="manageBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ── Page: Users ── -->
-  <div class="page" id="page-users">
-    <div class="filter-bar">
-      <input class="search-box" type="text" placeholder="ค้นหาชื่อ / แผนก..." id="userSearch" oninput="renderUsers()">
-      <span style="font-size:11px;color:var(--text3)">ผู้ใช้ใหม่ต้องสมัครผ่านหน้า Login ก่อน จึงจะปรากฏที่นี่</span>
-      <span class="count-label" id="userCount"></span>
-    </div>
-    <div class="grid-cards" id="usersGrid"></div>
-  </div>
-
-  <!-- ── Page: Roles ── -->
-  <div class="page" id="page-roles">
-    <div class="filter-bar">
-      <span style="font-size:13px;font-weight:600;color:var(--text)">ผู้ใช้ที่ลงทะเบียนในระบบ</span>
-      <span class="count-label" id="rolesCount"></span>
-    </div>
-    <div style="padding:0 0 22px">
-      <table style="width:100%">
-        <thead><tr>
-          <th>Email</th><th>ชื่อที่แสดง</th><th style="width:160px">สิทธิ์</th><th style="width:100px">บันทึก</th>
-        </tr></thead>
-        <tbody id="rolesBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ── Page: Projects ── -->
   <div class="page" id="page-projects">
     <div class="filter-bar">
       <input class="search-box" type="text" placeholder="ค้นหาโปรเจกต์..." id="projSearch" oninput="renderProjects()">
-      <button class="btn btn-primary" onclick="openProjModal()">+ เพิ่มโปรเจกต์</button>
+      <button class="btn btn-primary" id="btnAddNewProj" onclick="openProjModal()" style="display:none">+ เพิ่มโปรเจกต์</button>
       <span class="count-label" id="projCount"></span>
     </div>
     <div class="grid-cards" id="projectsGrid"></div>
   </div>
 
-  <!-- ── Page: Review (PM) ── -->
-  <div class="page" id="page-review">
-    <div class="filter-bar">
-      <span style="font-size:13px;font-weight:600;color:var(--text)">✅ ตรวจรับงาน (Pending Review)</span>
-      <button class="btn btn-primary" onclick="renderReview()">รีเฟรช</button>
-      <span class="count-label" id="reviewCount"></span>
-    </div>
-    <div class="card">
-      <table>
-        <thead><tr>
-          <th style="width:28%">ชื่องาน</th>
-          <th style="width:14%">ผู้รับผิดชอบ</th>
-          <th style="width:10%">หมวดหมู่</th>
-          <th style="width:8%">Priority</th>
-          <th style="width:10%">Due Date</th>
-          <th style="width:10%">% คืบหน้า</th>
-          <th style="width:20%">จัดการ</th>
-        </tr></thead>
-        <tbody id="reviewBody"></tbody>
-      </table>
-    </div>
-  </div>
-
-  <!-- ── Page: Stand-up Review (PM) ── -->
-  <div class="page" id="page-standup">
-    <div class="filter-bar">
-      <span style="font-size:13px;font-weight:600;color:var(--text)">📋 รายงานประจำวัน (จัดกลุ่มตามพนักงาน)</span>
-      <button class="btn btn-primary" onclick="renderStandup()">รีเฟรช</button>
-    </div>
-    <div id="standupContainer" style="display:flex;flex-direction:column;gap:12px"></div>
-  </div>
-
-  <!-- ── Page: Workload Overview (PM) ── -->
   <div class="page" id="page-workload">
     <div class="filter-bar">
       <span style="font-size:13px;font-weight:600;color:var(--text)">📊 ภาระงานทีม (Team Workload)</span>
-      <button class="btn btn-primary" onclick="renderWorkload()">รีเฟรช</button>
+      <button class="btn btn-primary" onclick="initData()">รีเฟรช</button>
     </div>
     <div class="card">
       <table>
@@ -558,11 +470,11 @@ textarea{resize:vertical;min-height:60px}
   <div class="uv-header">
     <div>
       <div class="uv-greeting">สวัสดี, <span id="uv-name">...</span> 👋</div>
-      <div class="uv-sub" id="uv-sub">งานสารสนเทศ กองพัฒนานักศึกษา</div>
+      <div class="uv-sub">งานสารสนเทศ กองพัฒนานักศึกษา มหาวิทยาลัยสงขลานครินทร์</div>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
       <div class="live-badge"><span class="live-dot"></span>LIVE</div>
-      <div class="user-chip" id="userChip2" style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)">
+      <div class="user-chip" style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.2)">
         <div class="avatar-sm" id="userInitial2">?</div>
         <span id="userEmail2" style="color:#e0e7ff;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
         <button onclick="doLogout()" style="background:none;border:none;cursor:pointer;color:rgba(255,255,255,.6);font-size:14px;padding:0 0 0 4px" title="ออกจากระบบ">⏻</button>
@@ -598,19 +510,14 @@ textarea{resize:vertical;min-height:60px}
         <tbody id="uv-taskBody"></tbody>
       </table>
     </div>
-    <!-- Daily Log Submission -->
     <div class="card" style="padding:18px 20px">
       <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">📝 บันทึกประจำวัน</div>
-      <textarea id="dailyLogText" maxlength="500"
-        placeholder="สรุปสิ่งที่ทำวันนี้ ปัญหาที่พบ หรืองานที่วางแผนพรุ่งนี้..."
-        style="width:100%;min-height:90px;resize:vertical;border:var(--border);border-radius:var(--r8);padding:10px;font-size:12px;font-family:inherit;outline:none"
-        oninput="document.getElementById('dailyLogCount').textContent=this.value.length+'/500'"></textarea>
+      <textarea id="dailyLogText" maxlength="500" placeholder="สรุปสิ่งที่ทำวันนี้ ปัญหาที่พบ หรืองานที่วางแผนพรุ่งนี้..." style="width:100%;min-height:90px;resize:vertical;border:var(--border);border-radius:var(--r8);padding:10px;font-size:12px;font-family:inherit;outline:none" oninput="document.getElementById('dailyLogCount').textContent=this.value.length+'/500'"></textarea>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
         <span id="dailyLogCount" style="font-size:11px;color:var(--text3)">0/500</span>
         <button class="btn btn-primary" onclick="submitDailyLog()">บันทึก</button>
       </div>
     </div>
-    <!-- My Recent Logs (last 5 days) -->
     <div class="card" style="padding:18px 20px">
       <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">📋 ประวัติบันทึกย้อนหลัง (5 วัน)</div>
       <div id="myRecentLogs"><div style="color:var(--text3);font-size:12px;text-align:center;padding:10px">กำลังโหลด...</div></div>
@@ -618,7 +525,7 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
-<!-- ════ MODAL: Progress Update (User) ════ -->
+<!-- ════ MODALS ════ -->
 <div class="modal-overlay" id="progressModal">
   <div class="modal" style="width:400px">
     <div class="modal-header">
@@ -649,7 +556,6 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
-<!-- ════ MODAL: Task ════ -->
 <div class="modal-overlay" id="taskModal">
   <div class="modal">
     <div class="modal-header">
@@ -680,11 +586,10 @@ textarea{resize:vertical;min-height:60px}
         <div class="form-group"><label>% ความคืบหน้า (0–100)</label><input type="number" id="f-progress" min="0" max="100" value="0"></div>
       </div>
       <div class="form-row full"><div class="form-group"><label>หมายเหตุ</label><textarea id="f-note" maxlength="500" placeholder="หมายเหตุเพิ่มเติม..."></textarea></div></div>
-      <!-- admin/superadmin only -->
       <div class="form-row full" id="personalTaskRow" style="display:none">
         <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--r8);border:var(--border-half)">
           <input type="checkbox" id="f-personal" style="width:auto;margin:0;flex-shrink:0;cursor:pointer">
-          <label for="f-personal" style="margin:0;color:var(--text);font-weight:500;cursor:pointer;font-size:12px">🔒 งานส่วนตัว (ไม่แสดงให้ผู้ใช้ทั่วไปเห็น)</label>
+          <label for="f-personal" style="margin:0;color:var(--text);font-weight:500;cursor:pointer;font-size:12px">🔒 งานส่วนตัว (ส่วนงานอื่นจะไม่เห็น)</label>
         </div>
       </div>
     </div>
@@ -695,7 +600,6 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
-<!-- ════ MODAL: User (edit profile only) ════ -->
 <div class="modal-overlay" id="userModal">
   <div class="modal">
     <div class="modal-header">
@@ -704,12 +608,8 @@ textarea{resize:vertical;min-height:60px}
     </div>
     <div class="modal-body">
       <input type="hidden" id="userEditId">
-      <!-- email is read-only — owned by Supabase Auth -->
       <div class="form-row full">
-        <div class="form-group">
-          <label>อีเมล (แก้ไขไม่ได้)</label>
-          <input type="email" id="u-email" readonly style="background:var(--surface2);color:var(--text3);cursor:not-allowed">
-        </div>
+        <div class="form-group"><label>อีเมล (แก้ไขไม่ได้)</label><input type="email" id="u-email" readonly style="background:var(--surface2);color:var(--text3);cursor:not-allowed"></div>
       </div>
       <div class="form-row">
         <div class="form-group"><label>ชื่อ-สกุล *</label><input type="text" id="u-name" placeholder="ชื่อ-สกุล..."></div>
@@ -717,7 +617,7 @@ textarea{resize:vertical;min-height:60px}
       </div>
       <div class="form-row">
         <div class="form-group"><label>แผนก / งาน</label><input type="text" id="u-dept" placeholder="ชื่อแผนก..."></div>
-        <div class="form-group"><label>สิทธิ์</label>
+        <div class="form-group"><label>สิทธิ์การใช้งาน (Role)</label>
           <select id="u-role-select">
             <option value="user">user</option>
             <option value="admin">admin</option>
@@ -733,7 +633,6 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
-<!-- ════ MODAL: Project ════ -->
 <div class="modal-overlay" id="projModal">
   <div class="modal">
     <div class="modal-header">
@@ -749,9 +648,6 @@ textarea{resize:vertical;min-height:60px}
       </div>
       <div class="form-row">
         <div class="form-group"><label>วันสิ้นสุดโปรเจกต์</label><input type="date" id="p-due"></div>
-        <div class="form-group" style="justify-content:flex-end">
-          <span style="font-size:11px;color:var(--text3);margin-top:auto">ใช้แสดง Countdown บนการ์ด</span>
-        </div>
       </div>
       <div class="form-row full"><div class="form-group"><label>คำอธิบาย</label><textarea id="p-desc" maxlength="500" placeholder="รายละเอียดโปรเจกต์..."></textarea></div></div>
     </div>
@@ -762,7 +658,6 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
-<!-- ════ MODAL: Reject Comment (PM) ════ -->
 <div class="modal-overlay" id="rejectModal">
   <div class="modal" style="width:420px">
     <div class="modal-header">
@@ -790,268 +685,15 @@ textarea{resize:vertical;min-height:60px}
 const SUPABASE_URL = 'https://qgasixwvwegtsoxuflsg.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_umjMm3iNjNcXYKMDrHFAgA_gC0vGfpW';
 
-const _configured = !SUPABASE_URL.includes('YOUR_PROJECT');
-if (!_configured) document.getElementById('configBanner').style.display = 'block';
-
 const { createClient } = supabase;
-const db = _configured ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ════════════════════════════════
-//  AUTH
-// ════════════════════════════════
 let currentUser = null;
-let authMode = 'login';
-
-function togglePass(fieldId, btn) {
-  const f = document.getElementById(fieldId);
-  const show = f.type === 'password';
-  f.type = show ? 'text' : 'password';
-  btn.innerHTML = show
-    ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2l12 12M6.5 6.6A2 2 0 009.4 9.5M4.2 4.3C2.5 5.4 1.3 6.8 1 8c1.5 3.5 4 5.5 7 5.5a7 7 0 003.8-1.2M7 3.6A7 7 0 0115 8c-.3 1-.9 2-1.7 2.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`
-    : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8C2.5 4.5 5 2.5 8 2.5s5.5 2 7 5.5c-1.5 3.5-4 5.5-7 5.5S2.5 11.5 1 8z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/></svg>`;
-}
-
-function switchTab(mode) {
-  authMode = mode;
-  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
-  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
-  document.getElementById('confirmWrap').style.display = mode==='signup' ? 'block' : 'none';
-  document.getElementById('signupExtraFields').style.display = mode==='signup' ? 'block' : 'none';
-  document.getElementById('authBtn').textContent = mode==='login' ? 'เข้าสู่ระบบ' : 'สมัครใช้งาน';
-  document.getElementById('authError').textContent = '';
-}
-
-async function doAuth() {
-  const email    = document.getElementById('authEmail').value.trim();
-  const password = document.getElementById('authPassword').value;
-  const confirm  = document.getElementById('authConfirm').value;
-  const errEl    = document.getElementById('authError');
-  errEl.textContent = '';
-  errEl.style.color = 'var(--red)';
-
-  if (!email.endsWith('@psu.ac.th')) { errEl.textContent = 'กรุณาใช้ email @psu.ac.th เท่านั้น'; return; }
-  if (password.length < 6)           { errEl.textContent = 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร'; return; }
-  if (authMode==='signup' && password !== confirm) { errEl.textContent = 'รหัสผ่านไม่ตรงกัน'; return; }
-
-  document.getElementById('authBtn').textContent = 'กำลังดำเนินการ...';
-  document.getElementById('authBtn').disabled = true;
-
-  if (authMode === 'signup') {
-    const name = document.getElementById('authName').value.trim();
-    if (!name) {
-      errEl.textContent = 'กรุณากรอกชื่อ-สกุล';
-      document.getElementById('authBtn').disabled = false;
-      document.getElementById('authBtn').textContent = 'สมัครใช้งาน';
-      return;
-    }
-  }
-
-  const signupMeta = authMode === 'signup' ? {
-    name:     document.getElementById('authName').value.trim(),
-    position: document.getElementById('authPosition').value.trim(),
-    dept:     document.getElementById('authDept').value.trim(),
-  } : {};
-
-  const { error } = authMode === 'login'
-    ? await db.auth.signInWithPassword({ email, password })
-    : await db.auth.signUp({ email, password, options: { data: signupMeta } });
-
-  document.getElementById('authBtn').disabled = false;
-  document.getElementById('authBtn').textContent = authMode==='login' ? 'เข้าสู่ระบบ' : 'สมัครใช้งาน';
-
-  if (error) { errEl.textContent = error.message; return; }
-  if (authMode === 'signup') {
-    errEl.style.color = 'var(--green)';
-    errEl.textContent = 'สมัครสำเร็จ! กรุณาเข้าสู่ระบบ';
-    switchTab('login');
-  }
-}
-
-async function doLogout() {
-  await db.auth.signOut();
-  currentUser = null;
-  document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('adminView').style.display   = 'none';
-  document.getElementById('userView').style.display    = 'none';
-  document.getElementById('userChip').style.display    = 'none';
-}
-
-// ════════════════════════════════
-//  RBAC — 3 TIERS
-//  superadmin → adminView (all nav)
-//  admin      → adminView (no users/roles nav)
-//  user       → userView only
-// ════════════════════════════════
-function isAdmin() {
-  return currentUser && (currentUser.role === 'admin' || currentUser.role === 'superadmin');
-}
-
-async function setUserUI(user) {
-  currentUser = user;
-  const email   = user.email || '';
-  const initial = email.substring(0, 2).toUpperCase();
-
-  const { data: roleData } = await db.rpc('get_my_role');
-  const { data: profile }  = await db.from('profiles').select('display_name').eq('id', user.id).maybeSingle();
-  currentUser.role         = roleData || 'user';
-  currentUser.display_name = profile?.display_name || email.split('@')[0];
-
-  document.getElementById('loginScreen').style.display = 'none';
-
-  if (currentUser.role === 'superadmin' || currentUser.role === 'admin') {
-    document.getElementById('adminView').style.display = 'flex';
-    document.getElementById('userView').style.display  = 'none';
-
-    // superadmin sees users + roles nav; admin does not
-    const isSuperAdmin = currentUser.role === 'superadmin';
-    document.getElementById('nav-users').style.display         = isSuperAdmin ? 'flex' : 'none';
-    document.getElementById('nav-roles').style.display         = isSuperAdmin ? 'flex' : 'none';
-    document.getElementById('nav-section-admin').style.display = isSuperAdmin ? 'block' : 'none';
-    // PM Dashboard nav — visible for admin & superadmin
-    document.getElementById('nav-section-pm').style.display = 'block';
-    document.getElementById('nav-review').style.display     = 'flex';
-    document.getElementById('nav-standup').style.display    = 'flex';
-    document.getElementById('nav-workload').style.display   = 'flex';
-
-    document.getElementById('userInitial').textContent = initial;
-    document.getElementById('userEmail').textContent   = email;
-    document.getElementById('userChip').style.display  = 'flex';
-
-    initData();
-  } else {
-    document.getElementById('adminView').style.display = 'none';
-    document.getElementById('userView').style.display  = 'flex';
-    document.getElementById('uv-name').textContent      = currentUser.display_name;
-    document.getElementById('userInitial2').textContent  = initial;
-    document.getElementById('userEmail2').textContent    = email;
-    initUserView();
-  }
-}
-
-// ════════════════════════════════
-//  USER VIEW
-// ════════════════════════════════
-let myTasks = [];
-
-async function initUserView() {
-  showLoading(true);
-  const { data } = await db.from('tasks').select('*')
-    .eq('assigned_email', currentUser.email)
-    .eq('is_personal', false)
-    .order('id');
-  myTasks = data || [];
-  showLoading(false);
-  renderUserView();
-  loadMyRecentLogs();
-}
-
-function renderUserView() {
-  const q  = (document.getElementById('uvTaskSearch').value||'').toLowerCase();
-  const sf = document.getElementById('uvStatFilter').value;
-  const filtered = myTasks.filter(t =>
-    (!q || (t.name||'').toLowerCase().includes(q) || (t.group||'').toLowerCase().includes(q)) &&
-    (!sf || t.status === sf)
-  );
-  const s = calcStats(myTasks);
-  document.getElementById('uv-total').textContent  = s.total;
-  document.getElementById('uv-inprog').textContent = s.inprog;
-  document.getElementById('uv-done').textContent   = s.done;
-  document.getElementById('uv-high').textContent   = s.high;
-  document.getElementById('uv-avg').textContent    = s.avg + '%';
-  document.getElementById('uvTaskCount').textContent = `แสดง ${filtered.length} / ${myTasks.length} รายการ`;
-  document.getElementById('uv-taskBody').innerHTML = filtered.length
-    ? filtered.map(t => `
-      <tr class="${t.priority==='High'?'row-urgent':''}">
-        <td><div class="task-name" style="cursor:default">${t.name}</div>
-            ${t.group ? `<div class="group-pill">${t.group}</div>` : ''}
-            ${t.note ? `<div class="cell-muted" style="font-size:10px;margin-top:2px">${t.note}</div>` : ''}
-            ${t.pm_comment ? `<div class="pm-comment-box">💬 PM: ${t.pm_comment}</div>` : ''}</td>
-        <td>${priBadge(t.priority)}</td>
-        <td>${statBadge(t.status)}</td>
-        <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
-        <td>${progBar(t.progress)}</td>
-        <td><button class="btn btn-sm btn-primary" onclick="openProgressModal(${t.id})">อัปเดต</button></td>
-      </tr>`).join('')
-    : '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีงานที่ได้รับมอบหมาย</td></tr>';
-}
-
-function openProgressModal(id) {
-  const t = myTasks.find(x => x.id === id);
-  if (!t) return;
-  document.getElementById('pm-id').value        = id;
-  document.getElementById('pm-name').textContent = t.name;
-  document.getElementById('pm-status').value    = t.status;
-  document.getElementById('pm-progress').value  = t.progress;
-  document.getElementById('pm-note').value      = t.note || '';
-  document.getElementById('progressModal').classList.add('open');
-}
-
-async function saveProgress() {
-  const id  = document.getElementById('pm-id').value;
-  const obj = {
-    status:   document.getElementById('pm-status').value,
-    progress: parseInt(document.getElementById('pm-progress').value) || 0,
-    note:     document.getElementById('pm-note').value,
-  };
-  const { error } = await db.from('tasks').update(obj).eq('id', id);
-  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
-  const idx = myTasks.findIndex(t => t.id == id);
-  myTasks[idx] = { ...myTasks[idx], ...obj };
-  closeModal('progressModal');
-  renderUserView();
-}
-
-// ════════════════════════════════
-//  DAILY LOG (User submits)
-// ════════════════════════════════
-async function submitDailyLog() {
-  const msg = document.getElementById('dailyLogText').value.trim();
-  if (!msg) { alert('กรุณากรอกบันทึกก่อน'); return; }
-  const { error } = await db.from('daily_logs').insert([{
-    user_id:      currentUser.id,
-    user_email:   currentUser.email,
-    display_name: currentUser.display_name,
-    message:      msg,
-  }]);
-  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
-  document.getElementById('dailyLogText').value = '';
-  document.getElementById('dailyLogCount').textContent = '0/500';
-  alert('บันทึกสำเร็จ!');
-  loadMyRecentLogs();
-}
-
-// ════════════════════════════════
-//  IN-MEMORY STORE
-// ════════════════════════════════
 let tasks = [], users = [], projects = [], dailyLogs = [];
 
 // ════════════════════════════════
-//  INIT
+//  AUTH & UI STATE
 // ════════════════════════════════
-async function initData() {
-  showLoading(true);
-  try {
-    const [tr, ur, pr, lr] = await Promise.all([
-      db.from('tasks').select('*').order('id'),
-      db.from('profiles').select('id, email, display_name, role, position, dept').order('email'),
-      db.from('projects').select('*').order('id'),
-      db.from('daily_logs').select('*').order('created_at', { ascending: false }).limit(300),
-    ]);
-    if (tr.error) throw tr.error;
-    if (ur.error) throw ur.error;
-    if (pr.error) throw pr.error;
-    tasks     = tr.data || [];
-    users     = ur.data || [];
-    projects  = (pr.data || []).map(p => ({ ...p, desc: p.description }));
-    dailyLogs = lr.data || [];
-  } catch(e) {
-    alert('❌ เชื่อมต่อ Supabase ไม่ได้\n' + e.message);
-  }
-  showLoading(false);
-  renderTasks();
-  renderBottleneckAlerts();
-}
-
 async function initAuth() {
   const { data: { session } } = await db.auth.getSession();
   if (session?.user) await setUserUI(session.user);
@@ -1060,481 +702,270 @@ async function initAuth() {
   });
 }
 
-function canEdit(task) {
-  if (!currentUser) return false;
-  if (isAdmin()) return true;
-  if (!task.user_id) return true;
-  return task.user_id === currentUser.id;
+async function setUserUI(user) {
+  const { data: roleData } = await db.rpc('get_my_role');
+  const { data: profile }  = await db.from('profiles').select('*').eq('id', user.id).maybeSingle();
+  
+  currentUser = { ...user, role: roleData || 'user', display_name: profile?.display_name || user.email.split('@')[0] };
+  
+  document.getElementById('loginScreen').style.display = 'none';
+  const isAdminOrPM = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+
+  if (isAdminOrPM) {
+    document.getElementById('adminView').style.display = 'flex';
+    document.getElementById('userView').style.display  = 'none';
+    
+    // UI Visibility based on role
+    const isSuper = currentUser.role === 'superadmin';
+    document.getElementById('nav-section-admin').style.display = isSuper ? 'block' : 'none';
+    document.getElementById('nav-team').style.display          = isSuper ? 'flex' : 'none';
+    document.getElementById('nav-workload').style.display      = 'flex';
+    document.getElementById('btnAddNewTask').style.display     = 'block';
+    document.getElementById('btnAddNewProj').style.display     = 'block';
+
+    document.getElementById('userInitial').textContent = currentUser.email.substring(0,2).toUpperCase();
+    document.getElementById('userEmail').textContent   = currentUser.email;
+    document.getElementById('userChip').style.display  = 'flex';
+    
+    initData();
+  } else {
+    document.getElementById('adminView').style.display = 'none';
+    document.getElementById('userView').style.display  = 'flex';
+    document.getElementById('uv-name').textContent     = currentUser.display_name;
+    document.getElementById('userInitial2').textContent= currentUser.email.substring(0,2).toUpperCase();
+    document.getElementById('userEmail2').textContent  = currentUser.email;
+    initUserView();
+  }
 }
 
-function showLoading(v) {
-  document.getElementById('loadingOverlay').style.display = v ? 'flex' : 'none';
+async function doAuth() {
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  if (!email.endsWith('@psu.ac.th')) { alert('กรุณาใช้ email @psu.ac.th'); return; }
+  
+  const { error } = authMode === 'login'
+    ? await db.auth.signInWithPassword({ email, password })
+    : await db.auth.signUp({ email, password, options: { data: { name: document.getElementById('authName').value.trim(), position: document.getElementById('authPosition').value.trim(), dept: document.getElementById('authDept').value.trim() } } });
+
+  if (error) alert(error.message);
+  else if (authMode === 'signup') { alert('สมัครสำเร็จ! กรุณาเข้าสู่ระบบ'); switchTab('login'); }
+}
+
+async function doLogout() {
+  await db.auth.signOut();
+  location.reload();
 }
 
 // ════════════════════════════════
-//  NAVIGATION
+//  DATA FETCHING (PRODUCTION READY)
+// ════════════════════════════════
+async function initData() {
+  showLoading(true);
+  try {
+    const [tr, ur, pr, lr] = await Promise.all([
+      db.from('tasks').select('*').order('id'),
+      db.from('profiles').select('*').order('email'),
+      db.from('projects').select('*').order('id'),
+      db.from('daily_logs').select('*').order('created_at', { ascending: false }).limit(300),
+    ]);
+    tasks = tr.data || [];
+    users = ur.data || [];
+    projects = pr.data || [];
+    dailyLogs = lr.data || [];
+    
+    navigate('taskboard');
+  } catch(e) { console.error(e); }
+  showLoading(false);
+  renderTaskBoard();
+  renderBottleneckAlerts();
+}
+
+async function initUserView() {
+  showLoading(true);
+  // BUG FIX: Fetch all tasks assigned to user (remove is_personal check here)
+  const { data } = await db.from('tasks').select('*')
+    .ilike('assigned_email', currentUser.email)
+    .order('id');
+  myTasks = data || [];
+  showLoading(false);
+  renderUserView();
+  loadMyRecentLogs();
+}
+
+// ════════════════════════════════
+//  NAVIGATION & CONSOLIDATION
 // ════════════════════════════════
 const pageTitles = {
-  tasks:"มุมมองติดตามงาน", dashboard:"Dashboard", report:"Weekly Status Report",
-  manage:"จัดการงาน", users:"จัดการผู้ใช้", projects:"จัดการโปรเจกต์",
-  roles:"จัดการสิทธิ์", logs:"บันทึกประจำวัน",
-  review:"ตรวจรับงาน", standup:"ตรวจรายงานประจำวัน", workload:"ภาระงานทีม"
+  taskboard: "กระดานติดตามงาน", team: "จัดการทีม (Team Management)", 
+  dailyreports: "รายงานการทำงานทีม", projects: "โปรเจกต์ทั้งหมด",
+  dashboard: "Dashboard", report: "Weekly Status Report", workload: "ภาระงานทีม"
 };
 
 function navigate(page) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('page-' + page).classList.add('active');
+  
+  const target = document.getElementById('page-' + page);
+  if (target) target.classList.add('active');
+  
   document.querySelectorAll('.nav-item').forEach(n => {
-    if(n.getAttribute('onclick') === `navigate('${page}')`) n.classList.add('active');
+    if(n.getAttribute('onclick')?.includes(`'${page}'`)) n.classList.add('active');
   });
+  
   document.getElementById('pageTitle').textContent = pageTitles[page] || page;
-  if(page === 'tasks')     renderTasks();
-  if(page === 'manage')    renderManage();
-  if(page === 'users')     renderUsers();
-  if(page === 'projects')  renderProjects();
-  if(page === 'report')    renderReport();
-  if(page === 'dashboard') renderDashboard();
-  if(page === 'roles')     renderRoles();
-  if(page === 'logs')      renderDailyLogs();
-  if(page === 'review')    renderReview();
-  if(page === 'standup')   renderStandup();
-  if(page === 'workload')  renderWorkload();
+  
+  if(page === 'taskboard')    renderTaskBoard();
+  if(page === 'team')         renderTeam();
+  if(page === 'dailyreports') renderDailyReports();
+  if(page === 'projects')     renderProjects();
+  if(page === 'dashboard')    renderDashboard();
+  if(page === 'report')       renderReport();
+  if(page === 'workload')     renderWorkload();
 }
 
 // ════════════════════════════════
-//  HELPERS
+//  UI RENDERING: TASK BOARD (Consolidated)
 // ════════════════════════════════
-function priBadge(p) {
-  const cls = {High:'b-high',Medium:'b-medium',Low:'b-low'}[p]||'b-low';
-  const dc  = {High:'d-high',Medium:'d-medium',Low:'d-low'}[p]||'d-low';
-  return `<span class="badge ${cls}"><span class="dot ${dc}"></span>${p}</span>`;
-}
-function statBadge(s) {
-  const cls = {'In Progress':'b-inprog','To Do':'b-todo','Done':'b-done','Pending Review':'b-pending'}[s]||'b-todo';
-  const dc  = {'In Progress':'d-inprog','To Do':'d-todo','Done':'d-done','Pending Review':'d-pending'}[s]||'d-todo';
-  return `<span class="badge ${cls}"><span class="dot ${dc}"></span>${s}</span>`;
-}
-function progBar(v) {
-  return `<div class="prog-wrap"><div class="prog-bar"><div class="prog-fill" style="width:${v}%"></div></div><span class="prog-text">${v}%</span></div>`;
-}
-function fmtDate(d) {
-  if(!d) return '-';
-  const months=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-  const dt = new Date(d + (d.includes('T') ? '' : 'T00:00:00'));
-  return `${dt.getDate()} ${months[dt.getMonth()]} ${dt.getFullYear()-1957+2500}`;
-}
-function calcStats(arr) {
-  const total=arr.length, inprog=arr.filter(t=>t.status==='In Progress').length;
-  const todo=arr.filter(t=>t.status==='To Do').length, done=arr.filter(t=>t.status==='Done').length;
-  const high=arr.filter(t=>t.priority==='High').length;
-  const avg = total ? Math.round(arr.reduce((s,t)=>s+t.progress,0)/total) : 0;
-  return {total,inprog,todo,done,high,avg};
-}
-function initials(name) {
-  const parts = (name||'?').trim().split(' ');
-  return parts.length>=2 ? (parts[0][0]+(parts[1]?.[0]||'')).toUpperCase() : (name||'?').substring(0,2).toUpperCase();
-}
-function daysLeft(dueDate) {
-  if (!dueDate) return null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const due   = new Date(dueDate + 'T00:00:00');
-  return Math.ceil((due - today) / 86400000);
-}
-function countdownBadge(dueDate) {
-  const d = daysLeft(dueDate);
-  if (d === null) return '';
-  if (d < 0)   return `<span class="countdown cd-over">เกินกำหนด ${Math.abs(d)} วัน</span>`;
-  if (d === 0) return `<span class="countdown cd-urgent">ครบกำหนดวันนี้!</span>`;
-  if (d <= 7)  return `<span class="countdown cd-warn">⏰ เหลือ ${d} วัน</span>`;
-  return `<span class="countdown cd-ok">เหลือ ${d} วัน</span>`;
-}
-
-// ════════════════════════════════
-//  TASK TRACKING PAGE
-// ════════════════════════════════
-function renderTasks() {
-  const q   = (document.getElementById('taskSearch').value||'').toLowerCase();
+function renderTaskBoard() {
+  const q = document.getElementById('taskSearch').value.toLowerCase();
   const pri = document.getElementById('priFilter').value;
-  const st  = document.getElementById('statFilter').value;
-  const visible  = tasks.filter(t => isAdmin() || !t.is_personal);
-  const filtered = visible.filter(t =>
-    (!q || (t.name||'').toLowerCase().includes(q) || (t.owner||'').toLowerCase().includes(q) || (t.group||'').toLowerCase().includes(q)) &&
-    (!pri || t.priority===pri) && (!st || t.status===st)
+  const st = document.getElementById('statFilter').value;
+  const isAdminOrPM = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+
+  const visible = tasks.filter(t => isAdminOrPM || !t.is_personal || t.assigned_email?.toLowerCase() === currentUser.email.toLowerCase());
+  const filtered = visible.filter(t => 
+    (!q || t.name.toLowerCase().includes(q) || t.assigned_email?.toLowerCase().includes(q)) &&
+    (!pri || t.priority === pri) && (!st || t.status === st)
   );
-  const st2 = calcStats(visible);
-  document.getElementById('s-total').textContent  = st2.total;
-  document.getElementById('s-inprog').textContent = st2.inprog;
-  document.getElementById('s-todo').textContent   = st2.todo;
-  document.getElementById('s-high').textContent   = st2.high;
-  document.getElementById('s-avg').textContent    = st2.avg+'%';
-  document.getElementById('urgentBadge').textContent = st2.high;
-  document.getElementById('taskCount').textContent   = `แสดง ${filtered.length} / ${visible.length} รายการ`;
+
+  const s = calcStats(visible);
+  document.getElementById('s-total').textContent = s.total;
+  document.getElementById('s-inprog').textContent = s.inprog;
+  document.getElementById('s-pending').textContent = tasks.filter(t => t.status === 'Pending Review').length;
+  document.getElementById('s-high').textContent = s.high;
+  document.getElementById('s-avg').textContent = s.avg + '%';
+  document.getElementById('taskCount').textContent = `แสดง ${filtered.length} / ${visible.length} รายการ`;
+  document.getElementById('reviewBadge').textContent = tasks.filter(t => t.status === 'Pending Review').length;
+
   document.getElementById('taskBody').innerHTML = filtered.map(t => `
-    <tr class="${t.priority==='High'?'row-urgent':''}">
+    <tr class="${t.priority === 'High' ? 'row-urgent' : ''}">
       <td style="color:var(--text3);font-size:11px;text-align:center">${t.id}</td>
       <td><div class="task-name" title="${t.name}">${t.name}${t.is_personal?'<span class="personal-badge">🔒</span>':''}</div>
-          ${t.group ? `<div class="group-pill">${t.group}</div>` : ''}</td>
-      <td><div class="cell-muted">${t.owner||'-'}</div></td>
-      <td><div class="cell-muted">${t.group||'-'}</div></td>
+          ${t.pm_comment ? `<div class="pm-comment-box">💬 PM: ${t.pm_comment}</div>` : ''}</td>
+      <td><div class="cell-muted">${getOwnerName(t.assigned_email)}</div></td>
+      <td><div class="group-pill">${t.group || 'ทั่วไป'}</div></td>
       <td>${priBadge(t.priority)}</td>
       <td>${statBadge(t.status)}</td>
-      <td><div class="cell-muted" style="white-space:nowrap">${fmtDate(t.due)}</div></td>
-      <td>${progBar(t.progress)}</td>
-      <td>${canEdit(t) ? `<button class="btn btn-sm btn-primary" onclick="openTaskModal(${t.id})">แก้ไข</button>` : ''}</td>
-    </tr>`).join('');
-}
-
-// ════════════════════════════════
-//  MANAGE TASKS PAGE
-// ════════════════════════════════
-function renderManage() {
-  const q = (document.getElementById('manageSearch').value||'').toLowerCase();
-  const visible  = tasks.filter(t => isAdmin() || !t.is_personal);
-  const filtered = visible.filter(t => !q || (t.name||'').toLowerCase().includes(q) || (t.owner||'').toLowerCase().includes(q));
-  document.getElementById('manageCount').textContent = `${filtered.length} รายการ`;
-  document.getElementById('manageBody').innerHTML = filtered.map(t => `
-    <tr>
-      <td style="color:var(--text3);font-size:11px;text-align:center">${t.id}</td>
-      <td><div class="task-name">${t.name}${t.is_personal?'<span class="personal-badge">🔒</span>':''}</div></td>
-      <td><div class="cell-muted">${t.owner||'-'}</div></td>
-      <td>${priBadge(t.priority)}</td>
-      <td>${statBadge(t.status)}</td>
-      <td>${progBar(t.progress)}</td>
       <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
-      <td style="display:flex;gap:4px">
-        ${canEdit(t) ? `<button class="btn btn-sm btn-primary" onclick="openTaskModal(${t.id})">แก้ไข</button>` : ''}
-        ${canEdit(t) ? `<button class="btn btn-sm btn-danger" onclick="deleteTask(${t.id})">ลบ</button>` : ''}
-      </td>
-    </tr>`).join('');
-}
-
-// ════════════════════════════════
-//  TASK MODAL
-// ════════════════════════════════
-async function openTaskModal(id) {
-  const { data: profs } = await db.from('profiles').select('email, display_name').order('email');
-  const sel = document.getElementById('f-assignee');
-  sel.innerHTML = '<option value="">-- เลือกผู้รับผิดชอบ --</option>' +
-    (profs||[]).map(p => `<option value="${p.email}">${p.display_name || p.email}</option>`).join('');
-
-  document.getElementById('personalTaskRow').style.display = isAdmin() ? 'flex' : 'none';
-  document.getElementById('taskEditId').value = id||'';
-
-  if(id) {
-    const t = tasks.find(x=>x.id===id);
-    document.getElementById('taskModalTitle').textContent = 'แก้ไขงาน';
-    document.getElementById('f-name').value      = t.name;
-    sel.value                                    = t.assigned_email || '';
-    document.getElementById('f-group').value     = t.group || 'ระบบสารสนเทศ';
-    document.getElementById('f-priority').value  = t.priority;
-    document.getElementById('f-status').value    = t.status;
-    document.getElementById('f-due').value       = t.due || '';
-    document.getElementById('f-progress').value  = t.progress;
-    document.getElementById('f-note').value      = t.note||'';
-    document.getElementById('f-personal').checked = t.is_personal || false;
-  } else {
-    document.getElementById('taskModalTitle').textContent = 'เพิ่มงานใหม่';
-    ['f-name','f-note'].forEach(x=>document.getElementById(x).value='');
-    sel.value = '';
-    document.getElementById('f-progress').value   = 0;
-    document.getElementById('f-due').value        = '';
-    document.getElementById('f-personal').checked = false;
-  }
-  document.getElementById('taskModal').classList.add('open');
-}
-
-async function saveTask() {
-  const name           = document.getElementById('f-name').value.trim();
-  const assigned_email = document.getElementById('f-assignee').value;
-  const assigneeOption = document.getElementById('f-assignee').selectedOptions[0];
-  const owner          = assigneeOption?.text || assigned_email;
-  if(!name||!assigned_email){alert('กรุณากรอกชื่องานและเลือกผู้รับผิดชอบ');return;}
-  const editId = document.getElementById('taskEditId').value;
-  const obj = {
-    name, owner, assigned_email,
-    group:       document.getElementById('f-group').value,
-    priority:    document.getElementById('f-priority').value,
-    status:      document.getElementById('f-status').value,
-    due:         document.getElementById('f-due').value || null,
-    progress:    parseInt(document.getElementById('f-progress').value)||0,
-    note:        document.getElementById('f-note').value,
-    is_personal: isAdmin() ? document.getElementById('f-personal').checked : false,
-  };
-  if(editId) {
-    const {error} = await db.from('tasks').update(obj).eq('id', editId);
-    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
-    const idx = tasks.findIndex(t=>t.id==editId);
-    tasks[idx] = {...tasks[idx],...obj};
-  } else {
-    const {data, error} = await db.from('tasks').insert([{...obj, user_id: currentUser?.id}]).select().single();
-    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
-    tasks.push(data);
-  }
-  closeModal('taskModal');
-  renderTasks(); renderManage();
-}
-
-async function deleteTask(id) {
-  if(!confirm('ต้องการลบงานนี้?')) return;
-  const {error} = await db.from('tasks').delete().eq('id', id);
-  if(error){alert('ลบไม่สำเร็จ: '+error.message);return;}
-  tasks = tasks.filter(t=>t.id!==id);
-  renderManage(); renderTasks();
-}
-
-// ════════════════════════════════
-//  USERS PAGE  (single source: profiles)
-// ════════════════════════════════
-function renderUsers() {
-  const q = (document.getElementById('userSearch').value||'').toLowerCase();
-  const filtered = users.filter(u =>
-    !q ||
-    (u.display_name||'').toLowerCase().includes(q) ||
-    (u.dept||'').toLowerCase().includes(q) ||
-    (u.position||'').toLowerCase().includes(q) ||
-    (u.email||'').toLowerCase().includes(q)
-  );
-  document.getElementById('userCount').textContent = `${filtered.length} คน`;
-  document.getElementById('usersGrid').innerHTML = filtered.map(u => {
-    const name = u.display_name || u.email;
-    const tc = tasks.filter(t => t.assigned_email === u.email).length;
-    const ip = tasks.filter(t => t.assigned_email === u.email && t.status === 'In Progress').length;
-    const roleCls = {superadmin:'color:#6b21a8',admin:'color:var(--blue)',user:'color:var(--green)'}[u.role] || '';
-    return `
-    <div class="user-card">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div class="avatar">${initials(name)}</div>
-        <div style="min-width:0">
-          <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</div>
-          <div style="font-size:11px;color:var(--text2)">${u.position||'-'}</div>
+      <td>${progBar(t.progress)}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          ${isAdminOrPM ? `
+            <button class="btn btn-sm btn-primary" onclick="openTaskModal(${t.id})" title="แก้ไข">✎</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteTask(${t.id})" title="ลบ">🗑</button>
+            ${t.status === 'Pending Review' ? `
+              <button class="btn btn-sm" style="background:#d1fae5;color:#065f46" onclick="approveTask(${t.id})" title="อนุมัติ">✅</button>
+              <button class="btn btn-sm btn-danger" onclick="openRejectModal(${t.id})" title="ตีกลับ">❌</button>
+            ` : ''}
+          ` : '<span style="color:var(--text3)">Read Only</span>'}
         </div>
-      </div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.email||'-'}</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">📁 ${u.dept||'-'}</div>
-      <div style="font-size:11px;font-weight:600;margin-bottom:10px;${roleCls}">🔑 ${u.role||'user'}</div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2);border-top:var(--border-half);padding-top:8px">
-        <span>งานทั้งหมด: <strong>${tc}</strong></span>
-        <span>In Progress: <strong style="color:var(--blue)">${ip}</strong></span>
-      </div>
-      <div style="display:flex;gap:4px;margin-top:8px">
-        <button class="btn btn-sm btn-primary" style="flex:1" onclick="openUserModal('${u.id}')">แก้ไข</button>
-        ${currentUser?.role === 'superadmin' && u.id !== currentUser.id
-          ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">ลบ</button>`
-          : ''}
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function openUserModal(id) {
-  const u = users.find(x => x.id === id);
-  if (!u) return;
-  document.getElementById('userEditId').value      = u.id;
-  document.getElementById('u-email').value         = u.email || '';
-  document.getElementById('u-name').value          = u.display_name || '';
-  document.getElementById('u-position').value      = u.position || '';
-  document.getElementById('u-dept').value          = u.dept || '';
-  document.getElementById('u-role-select').value   = u.role || 'user';
-  document.getElementById('userModal').classList.add('open');
-}
-
-async function saveUser() {
-  const display_name = document.getElementById('u-name').value.trim();
-  if (!display_name) { alert('กรุณากรอกชื่อ-สกุล'); return; }
-  const editId = document.getElementById('userEditId').value;
-  const obj = {
-    display_name,
-    position: document.getElementById('u-position').value,
-    dept:     document.getElementById('u-dept').value,
-    role:     document.getElementById('u-role-select').value,
-  };
-  const { error } = await db.from('profiles').update(obj).eq('id', editId);
-  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
-  const idx = users.findIndex(u => u.id === editId);
-  users[idx] = { ...users[idx], ...obj };
-  closeModal('userModal');
-  renderUsers();
-  // keep roles page in sync if visible
-  const rolesPage = document.getElementById('page-roles');
-  if (rolesPage && rolesPage.classList.contains('active')) renderRoles();
-}
-
-async function deleteUser(id) {
-  const u = users.find(x => x.id === id);
-  if (!u) return;
-  if (!confirm(`ต้องการลบ "${u.display_name || u.email}" ออกจากระบบ?\n⚠️ ข้อมูลทั้งหมดจะถูกลบและไม่สามารถกู้คืนได้`)) return;
-  const { error } = await db.rpc('delete_user_by_id', { target_id: id });
-  if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
-  users = users.filter(u => u.id !== id);
-  renderUsers();
+      </td>
+    </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text3)">ไม่พบข้อมูล</td></tr>';
 }
 
 // ════════════════════════════════
-//  ROLES PAGE
+//  UI RENDERING: TEAM MANAGEMENT (Consolidated)
 // ════════════════════════════════
-async function renderRoles() {
-  const { data, error } = await db.from('profiles')
-    .select('id, email, display_name, role, position, dept').order('email');
-  if (error) { alert('โหลดข้อมูลไม่สำเร็จ: ' + error.message); return; }
-  // keep users in-memory store in sync
-  users = data;
-  document.getElementById('rolesCount').textContent = `${data.length} คน`;
-  document.getElementById('rolesBody').innerHTML = data.map(p => `
+function renderTeam() {
+  const q = document.getElementById('teamSearch').value.toLowerCase();
+  const filtered = users.filter(u => !q || u.display_name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q));
+  
+  document.getElementById('teamCount').textContent = `${filtered.length} คน`;
+  document.getElementById('teamBody').innerHTML = filtered.map(u => `
     <tr>
-      <td>${p.email}</td>
+      <td><div class="avatar" style="width:32px;height:32px;font-size:11px">${initials(u.display_name || u.email)}</div></td>
       <td>
-        <div style="font-size:12px;font-weight:500">${p.display_name || '-'}</div>
-        <div style="font-size:11px;color:var(--text3)">${p.position||''} ${p.dept ? '· '+p.dept : ''}</div>
+        <div style="font-weight:600">${u.display_name || 'ไม่ระบุชื่อ'}</div>
+        <div style="font-size:11px;color:var(--text2)">${u.email}</div>
       </td>
       <td>
-        <select id="role_${p.id}" style="border:var(--border);border-radius:var(--r8);padding:4px 8px;font-size:12px;background:var(--surface)">
-          <option value="user"       ${p.role==='user'       ?'selected':''}>user</option>
-          <option value="admin"      ${p.role==='admin'      ?'selected':''}>admin</option>
-          <option value="superadmin" ${p.role==='superadmin' ?'selected':''}>superadmin</option>
+        <div>${u.position || '-'}</div>
+        <div style="font-size:11px;color:var(--text3)">${u.dept || '-'}</div>
+      </td>
+      <td>
+        <select class="fselect" style="width:100%" onchange="updateUserRole('${u.id}', this.value)">
+          <option value="user" ${u.role==='user'?'selected':''}>user</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>admin</option>
+          <option value="superadmin" ${u.role==='superadmin'?'selected':''}>superadmin</option>
         </select>
       </td>
-      <td><button class="btn btn-sm btn-primary" onclick="setRole('${p.id}')">บันทึก</button></td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-sm btn-primary" onclick="openUserModal('${u.id}')">แก้ไข</button>
+          ${currentUser.role==='superadmin' && u.id!==currentUser.id ? `<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">ลบ</button>` : ''}
+        </div>
+      </td>
     </tr>`).join('');
 }
 
-async function setRole(profileId) {
-  const role = document.getElementById('role_' + profileId).value;
-  const { error } = await db.from('profiles').update({ role }).eq('id', profileId);
-  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
-  alert('อัปเดตสิทธิ์สำเร็จ');
+async function updateUserRole(uid, role) {
+  const { error } = await db.from('profiles').update({ role }).eq('id', uid);
+  if (error) alert('ไม่สามารถเปลี่ยนสิทธิ์ได้: ' + error.message);
+  else alert('อัปเดตสิทธิ์สำเร็จ');
 }
 
 // ════════════════════════════════
-//  PROJECTS PAGE
+//  UI RENDERING: DAILY REPORTS (Consolidated)
 // ════════════════════════════════
-function renderProjects() {
-  const q = (document.getElementById('projSearch').value||'').toLowerCase();
-  const filtered = projects.filter(p => !q || p.name.toLowerCase().includes(q));
-  document.getElementById('projCount').textContent = `${filtered.length} โปรเจกต์`;
-  document.getElementById('projectsGrid').innerHTML = filtered.map(p => {
-    const related = tasks.filter(t=>t.group===p.name);
-    const avg = related.length ? Math.round(related.reduce((s,t)=>s+t.progress,0)/related.length) : 0;
-    const cd  = countdownBadge(p.due_date);
-    return `
-    <div class="proj-card">
-      <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:6px">
-        <div>
-          <div style="font-size:13px;font-weight:600">${p.name}</div>
-          <div style="font-size:11px;color:var(--text2);margin-top:2px">${p.group||''}</div>
-        </div>
-        <span class="badge b-inprog" style="font-size:10px">${related.length} งาน</span>
-      </div>
-      ${cd ? `<div>${cd}</div>` : ''}
-      <div style="font-size:11px;color:var(--text2);margin:6px 0 8px;line-height:1.5">${p.desc||''}</div>
-      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">หัวหน้า: ${p.owner||'-'}</div>
-      <div class="proj-bar"><div class="proj-fill" style="width:${avg}%"></div></div>
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
-        <span>คืบหน้าเฉลี่ย</span><span style="color:var(--blue);font-weight:600">${avg}%</span>
-      </div>
-      <div style="display:flex;gap:4px;margin-top:10px">
-        <button class="btn btn-sm" style="flex:1" onclick="openProjModal(${p.id})">แก้ไข</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteProject(${p.id})">ลบ</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function openProjModal(id) {
-  document.getElementById('projEditId').value = id||'';
-  if(id) {
-    const p = projects.find(x=>x.id===id);
-    document.getElementById('projModalTitle').textContent = 'แก้ไขโปรเจกต์';
-    document.getElementById('p-name').value  = p.name;
-    document.getElementById('p-owner').value = p.owner||'';
-    document.getElementById('p-group').value = p.group||'';
-    document.getElementById('p-desc').value  = p.desc||'';
-    document.getElementById('p-due').value   = p.due_date||'';
-  } else {
-    document.getElementById('projModalTitle').textContent = 'เพิ่มโปรเจกต์';
-    ['p-name','p-owner','p-group','p-desc','p-due'].forEach(x=>document.getElementById(x).value='');
-  }
-  document.getElementById('projModal').classList.add('open');
-}
-
-async function saveProject() {
-  const name = document.getElementById('p-name').value.trim();
-  if(!name){alert('กรุณากรอกชื่อโปรเจกต์');return;}
-  const editId = document.getElementById('projEditId').value;
-  const obj = {
-    name,
-    owner:       document.getElementById('p-owner').value,
-    group:       document.getElementById('p-group').value,
-    description: document.getElementById('p-desc').value,
-    due_date:    document.getElementById('p-due').value || null,
-  };
-  if(editId) {
-    const {error} = await db.from('projects').update(obj).eq('id', editId);
-    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
-    const idx=projects.findIndex(p=>p.id==editId);
-    projects[idx]={...projects[idx],...obj, desc: obj.description};
-  } else {
-    const {data, error} = await db.from('projects').insert([obj]).select().single();
-    if(error){alert('บันทึกไม่สำเร็จ: '+error.message);return;}
-    projects.push({...data, desc: data.description});
-  }
-  closeModal('projModal'); renderProjects();
-}
-
-async function deleteProject(id) {
-  if(!confirm('ต้องการลบโปรเจกต์นี้?')) return;
-  const {error} = await db.from('projects').delete().eq('id', id);
-  if(error){alert('ลบไม่สำเร็จ: '+error.message);return;}
-  projects = projects.filter(p=>p.id!==id); renderProjects();
-}
-
-// ════════════════════════════════
-//  DAILY LOGS PAGE (Admin view)
-// ════════════════════════════════
-let _logsData = [];
-
-async function renderDailyLogs() {
-  showLoading(true);
-  const { data, error } = await db.from('daily_logs')
-    .select('*').order('created_at', { ascending: false }).limit(300);
-  showLoading(false);
-  if (error) { alert('โหลดไม่สำเร็จ: ' + error.message); return; }
-  _logsData = data || [];
-  document.getElementById('logsSearch').value = '';
-  _renderLogsUI(_logsData);
-}
-
-function filterLogs() {
+async function renderDailyReports() {
   const q = document.getElementById('logsSearch').value.toLowerCase();
-  const filtered = q
-    ? _logsData.filter(l =>
-        (l.display_name||'').toLowerCase().includes(q) ||
-        (l.user_email||'').toLowerCase().includes(q) ||
-        l.message.toLowerCase().includes(q))
-    : _logsData;
-  _renderLogsUI(filtered);
-}
+  
+  // 1. Render Stand-up Section (Who reported today)
+  const today = new Date().toISOString().split('T')[0];
+  const todaysLogs = dailyLogs.filter(l => l.created_at.startsWith(today));
+  const reportedEmails = new Set(todaysLogs.map(l => l.user_email?.toLowerCase()));
+  const notReported = users.filter(u => u.role === 'user' && !reportedEmails.has(u.email?.toLowerCase()));
 
-function _renderLogsUI(data) {
-  document.getElementById('logsCount').textContent = `${data.length} รายการ`;
-  if (!data.length) {
-    document.getElementById('logsContainer').innerHTML =
-      '<div style="color:var(--text3);text-align:center;padding:40px">ยังไม่มีบันทึกประจำวัน</div>';
-    return;
+  let standupHtml = '';
+  if (notReported.length) {
+    standupHtml += `<div class="card" style="padding:14px 18px;border-left:3px solid var(--red);margin-bottom:12px">
+      <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px">⚠️ ยังไม่ส่งรายงานวันนี้ (${notReported.length} คน)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${notReported.map(u=>`<span class="no-report">${u.display_name||u.email}</span>`).join('')}</div>
+    </div>`;
   }
-  const grouped = {};
-  data.forEach(log => {
-    const d = new Date(log.created_at);
-    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(log);
+  
+  const groupedToday = {};
+  todaysLogs.forEach(l => {
+    const name = l.display_name || l.user_email;
+    if (!groupedToday[name]) groupedToday[name] = [];
+    groupedToday[name].push(l);
   });
-  document.getElementById('logsContainer').innerHTML = Object.entries(grouped).map(([date, logs]) => `
-    <div>
-      <div class="log-date-header">
-        📅 ${fmtDate(date)}
-        <span style="font-size:11px;color:var(--text3);font-weight:400">${logs.length} รายการ</span>
+
+  Object.entries(groupedToday).forEach(([name, logs]) => {
+    standupHtml += `<div class="card" style="padding:14px 18px;margin-bottom:8px">
+      <div style="font-size:12px;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+        <div class="avatar" style="width:24px;height:24px;font-size:10px">${initials(name)}</div> ${name}
       </div>
+      ${logs.map(l => `<div style="font-size:12px;color:var(--text);padding-left:32px">• ${l.message}</div>`).join('')}
+    </div>`;
+  });
+  
+  document.getElementById('standupContainer').innerHTML = standupHtml || '<div style="color:var(--text3);text-align:center;padding:20px">ยังไม่มีการรายงานในวันนี้</div>';
+
+  // 2. Render Historical Logs Section
+  const filteredLogs = q ? dailyLogs.filter(l => l.display_name?.toLowerCase().includes(q) || l.message?.toLowerCase().includes(q)) : dailyLogs;
+  document.getElementById('logsCount').textContent = `${filteredLogs.length} รายการ`;
+  
+  const groupedHistory = {};
+  filteredLogs.forEach(log => {
+    const d = log.created_at.split('T')[0];
+    if (!groupedHistory[d]) groupedHistory[d] = [];
+    groupedHistory[d].push(log);
+  });
+
+  document.getElementById('logsContainer').innerHTML = Object.entries(groupedHistory).map(([date, logs]) => `
+    <div>
+      <div class="log-date-header">📅 ${fmtDate(date)} <span style="font-weight:400;font-size:11px;color:var(--text3)">(${logs.length} รายการ)</span></div>
       ${logs.map(log => `
         <div class="log-entry">
           <div class="log-entry-header">
@@ -1547,323 +978,105 @@ function _renderLogsUI(data) {
 }
 
 // ════════════════════════════════
-//  WEEKLY REPORT
+//  HELPERS (REFACTORED)
 // ════════════════════════════════
-function renderReport() {
-  const pubTasks = tasks.filter(t => !t.is_personal);
-  const s = calcStats(pubTasks);
-  document.getElementById('r-total').textContent  = s.total;
-  document.getElementById('r-inprog').textContent = s.inprog;
-  document.getElementById('r-todo').textContent   = s.todo;
-  document.getElementById('r-done').textContent   = s.done;
-  document.getElementById('r-avg').textContent    = s.avg+'%';
-
-  const now = new Date();
-  const months=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
-  document.getElementById('reportDate').textContent =
-    `รายงานประจำสัปดาห์ · ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()+543} · งานสารสนเทศ กองพัฒนานักศึกษา มหาวิทยาลัยสงขลานครินทร์ · ปีการศึกษา ${AY}`;
-
-  function rows(arr, showStatus) {
-    return arr.map(t=>`<tr>
-      <td><div class="task-name">${t.name}</div></td>
-      <td><div class="cell-muted">${t.owner||'-'}</div></td>
-      <td>${showStatus ? statBadge(t.status) : priBadge(t.priority)}</td>
-      <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
-      <td>${progBar(t.progress)}</td>
-    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:14px">ไม่มีข้อมูล</td></tr>';
-  }
-  document.getElementById('reportHighBody').innerHTML   = rows(pubTasks.filter(t=>t.priority==='High'), true);
-  document.getElementById('reportInProgBody').innerHTML = rows(pubTasks.filter(t=>t.status==='In Progress'), false);
-  document.getElementById('reportTodoBody').innerHTML   = rows(pubTasks.filter(t=>t.status==='To Do'), false);
-
-  // Daily logs — last 7 days, grouped by user
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
-  const recent = dailyLogs.filter(l => new Date(l.created_at) >= cutoff);
-  if (recent.length) {
-    const byUser = {};
-    recent.forEach(l => {
-      const name = l.display_name || l.user_email;
-      if (!byUser[name]) byUser[name] = [];
-      byUser[name].push(l);
-    });
-    document.getElementById('reportLogsBody').innerHTML = Object.entries(byUser).map(([name, logs]) => `
-      <div style="margin-bottom:10px">
-        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:4px">${name}
-          <span style="font-size:11px;color:var(--text3);font-weight:400">${logs.length} รายการ</span>
-        </div>
-        ${logs.slice(0,3).map(l=>`
-          <div style="display:flex;gap:8px;margin-bottom:3px;font-size:11px">
-            <span style="color:var(--text3);white-space:nowrap">${new Date(l.created_at).toLocaleDateString('th-TH',{day:'numeric',month:'short'})}</span>
-            <span style="color:var(--text2)">${l.message.length>120?l.message.substring(0,120)+'…':l.message}</span>
-          </div>`).join('')}
-      </div>`).join('');
-  } else {
-    document.getElementById('reportLogsBody').innerHTML =
-      '<div style="color:var(--text3);font-size:12px">ยังไม่มีบันทึกใน 7 วันที่ผ่านมา</div>';
-  }
+function priBadge(p) {
+  const colors = { High: 'var(--red)', Medium: 'var(--amber)', Low: 'var(--green)' };
+  const bg = { High: '#fee2e2', Medium: '#fef3c7', Low: '#ecfdf5' };
+  return `<span class="badge" style="background:${bg[p]||bg.Low};color:${colors[p]||colors.Low}"><span class="dot" style="background:${colors[p]||colors.Low}"></span>${p}</span>`;
 }
-
-// ════════════════════════════════
-//  DASHBOARD CHARTS
-// ════════════════════════════════
-let chartInstances = {};
-function destroyChart(id) { if(chartInstances[id]){chartInstances[id].destroy();delete chartInstances[id];} }
-
-function renderDashboard() {
-  const pubTasks = tasks.filter(t => isAdmin() || !t.is_personal);
-  const s = calcStats(pubTasks);
-  document.getElementById('d-total').textContent  = s.total;
-  document.getElementById('d-inprog').textContent = s.inprog;
-  document.getElementById('d-done').textContent   = s.done;
-  document.getElementById('d-high').textContent   = s.high;
-  document.getElementById('d-avg').textContent    = s.avg+'%';
-
-  const palette = ['#1a56db','#f59e0b','#10b981','#e53935','#6366f1','#ec4899'];
-
-  destroyChart('chartStatus');
-  chartInstances['chartStatus'] = new Chart(document.getElementById('chartStatus'), {
-    type:'doughnut',
-    data:{labels:['In Progress','To Do','Done'],
-      datasets:[{data:[s.inprog,s.todo,s.done],backgroundColor:['#1a56db','#9ca3af','#10b981'],borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}
-  });
-
-  destroyChart('chartPriority');
-  chartInstances['chartPriority'] = new Chart(document.getElementById('chartPriority'), {
-    type:'doughnut',
-    data:{labels:['High','Medium','Low'],
-      datasets:[{data:[s.high,pubTasks.filter(t=>t.priority==='Medium').length,pubTasks.filter(t=>t.priority==='Low').length],
-        backgroundColor:['#e53935','#f59e0b','#10b981'],borderWidth:2,borderColor:'#fff'}]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}
-  });
-
-  const top = [...pubTasks].sort((a,b)=>b.progress-a.progress).slice(0,8);
-  destroyChart('chartProgress');
-  chartInstances['chartProgress'] = new Chart(document.getElementById('chartProgress'), {
-    type:'bar',
-    data:{labels:top.map(t=>t.name.length>18?t.name.substring(0,18)+'…':t.name),
-      datasets:[{label:'% คืบหน้า',data:top.map(t=>t.progress),backgroundColor:'#1a56db',borderRadius:4}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{x:{max:100,ticks:{font:{size:10}}},y:{ticks:{font:{size:10}}}}}
-  });
-
-  const groups = [...new Set(pubTasks.map(t=>t.group))];
-  destroyChart('chartGroup');
-  chartInstances['chartGroup'] = new Chart(document.getElementById('chartGroup'), {
-    type:'bar',
-    data:{labels:groups,
-      datasets:[{label:'จำนวนงาน',data:groups.map(g=>pubTasks.filter(t=>t.group===g).length),backgroundColor:palette,borderRadius:4}]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{y:{ticks:{stepSize:1,font:{size:10}}},x:{ticks:{font:{size:10}}}}}
-  });
+function statBadge(s) {
+  const map = { 'In Progress': {bg:'#e0e7ff',c:'#3730a3'}, 'To Do': {bg:'#f3f4f6',c:'#374151'}, 'Done': {bg:'#d1fae5',c:'#065f46'}, 'Pending Review': {bg:'#fef3c7',c:'#92400e'} };
+  const st = map[s] || map['To Do'];
+  return `<span class="badge" style="background:${st.bg};color:${st.c}"><span class="dot" style="background:${st.c}"></span>${s}</span>`;
 }
-
-// ════════════════════════════════
-//  MODAL UTILS
-// ════════════════════════════════
+function progBar(v) { return `<div class="prog-wrap" style="width:100%"><div class="prog-bar"><div class="prog-fill" style="width:${v}%"></div></div><span class="prog-text" style="font-size:10px">${v}%</span></div>`; }
+function fmtDate(d) {
+  if(!d) return '-';
+  const dt = new Date(d);
+  return `${dt.getDate()} ${["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."][dt.getMonth()]} ${dt.getFullYear()+543}`;
+}
+function calcStats(arr) {
+  const total = arr.length;
+  const inprog = arr.filter(t => t.status === 'In Progress').length;
+  const high = arr.filter(t => t.priority === 'High').length;
+  const avg = total ? Math.round(arr.reduce((s,t) => s + (t.progress || 0), 0) / total) : 0;
+  return { total, inprog, high, avg };
+}
+function initials(n) { return (n||'?').split(' ').map(x=>x[0]).join('').substring(0,2).toUpperCase(); }
+function getOwnerName(email) {
+  const u = users.find(x => x.email?.toLowerCase() === email?.toLowerCase());
+  return u ? (u.display_name || u.email) : (email || '-');
+}
+function showLoading(v) { document.getElementById('loadingOverlay').style.display = v ? 'flex' : 'none'; }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.modal-overlay').forEach(m => {
-  m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
-});
 
 // ════════════════════════════════
-//  CLOCK
+//  EXISTING LOGIC (PORTED & CLEANED)
 // ════════════════════════════════
-function updateClock() {
-  const now = new Date();
-  document.getElementById('clockDisplay').textContent =
-    now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+' น.';
-}
-updateClock(); setInterval(updateClock, 10000);
-
-// ════════════════════════════════
-//  ACADEMIC YEAR
-// ════════════════════════════════
-function academicYear() {
-  const now = new Date();
-  const be = now.getFullYear() + 543;
-  return now.getMonth() < 5 ? be - 1 : be;
-}
-const AY = academicYear();
-const ORG_SUFFIX = `งานสารสนเทศ กองพัฒนานักศึกษา มหาวิทยาลัยสงขลานครินทร์ · ปีการศึกษา ${AY}`;
-document.getElementById('pageSub').textContent = ORG_SUFFIX;
-document.getElementById('reportDate').textContent = ORG_SUFFIX;
-
-// ════════════════════════════════
-//  BOTTLENECK ALERTS
-// ════════════════════════════════
-function renderBottleneckAlerts() {
-  const banner = document.getElementById('bottleneckBanner');
-  const today = new Date(); today.setHours(0,0,0,0);
-  const items = [];
-  tasks.forEach(t => {
-    if (t.status === 'Done') return;
-    const dl = daysLeft(t.due);
-    if (dl !== null && dl < 0) items.push({type:'overdue', task:t, days:Math.abs(dl)});
-    else if (dl === 0 || dl === 1) items.push({type:'tomorrow', task:t, days:dl});
-    if (t.status === 'To Do' && t.created_at) {
-      const created = new Date(t.created_at); created.setHours(0,0,0,0);
-      const age = Math.ceil((today - created) / 86400000);
-      if (age > 7) items.push({type:'stuck', task:t, days:age});
-    }
-  });
-  if (!items.length) { banner.style.display='none'; return; }
-  banner.style.display='flex';
-  banner.innerHTML = '⚠️ <strong style="margin-right:4px">งานคอขวด:</strong> ' + items.map(i => {
-    if (i.type==='overdue') return `<span class="bn-item bn-overdue">🔴 ${i.task.name} (เลยกำหนด ${i.days} วัน)</span>`;
-    if (i.type==='tomorrow') return `<span class="bn-item bn-tomorrow">🟡 ${i.task.name} (${i.days===0?'วันนี้':'พรุ่งนี้'})</span>`;
-    return `<span class="bn-item bn-stuck">⚪ ${i.task.name} (To Do ${i.days} วัน)</span>`;
-  }).join('');
-  // update review badge count
-  const pending = tasks.filter(t => t.status==='Pending Review').length;
-  document.getElementById('reviewBadge').textContent = pending;
+async function openTaskModal(id) {
+  const sel = document.getElementById('f-assignee');
+  sel.innerHTML = '<option value="">-- เลือกผู้รับผิดชอบ --</option>' + users.map(u => `<option value="${u.email}">${u.display_name || u.email}</option>`).join('');
+  document.getElementById('personalTaskRow').style.display = 'block';
+  document.getElementById('taskEditId').value = id || '';
+  if(id) {
+    const t = tasks.find(x=>x.id===id);
+    document.getElementById('taskModalTitle').textContent = 'แก้ไขงาน';
+    document.getElementById('f-name').value = t.name;
+    sel.value = t.assigned_email;
+    document.getElementById('f-group').value = t.group || 'ทั่วไป';
+    document.getElementById('f-priority').value = t.priority;
+    document.getElementById('f-status').value = t.status;
+    document.getElementById('f-due').value = t.due || '';
+    document.getElementById('f-progress').value = t.progress;
+    document.getElementById('f-note').value = t.note || '';
+    document.getElementById('f-personal').checked = t.is_personal;
+  } else {
+    document.getElementById('taskModalTitle').textContent = 'เพิ่มงานใหม่';
+    ['f-name','f-note','f-due'].forEach(x=>document.getElementById(x).value='');
+    document.getElementById('f-progress').value = 0;
+    document.getElementById('f-personal').checked = false;
+  }
+  document.getElementById('taskModal').classList.add('open');
 }
 
-// ════════════════════════════════
-//  REVIEW PAGE (PM approve/reject)
-// ════════════════════════════════
-function renderReview() {
-  const pending = tasks.filter(t => t.status === 'Pending Review');
-  document.getElementById('reviewCount').textContent = `${pending.length} รายการ`;
-  document.getElementById('reviewBody').innerHTML = pending.length
-    ? pending.map(t => `
-      <tr>
-        <td><div class="task-name">${t.name}</div></td>
-        <td><div class="cell-muted">${t.owner||'-'}</div></td>
-        <td><div class="cell-muted">${t.group||'-'}</div></td>
-        <td>${priBadge(t.priority)}</td>
-        <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
-        <td>${progBar(t.progress)}</td>
-        <td style="display:flex;gap:4px">
-          <button class="btn btn-sm" style="background:#d1fae5;color:#065f46" onclick="approveTask(${t.id})">✅ Approve</button>
-          <button class="btn btn-sm btn-danger" onclick="openRejectModal(${t.id})">❌ Reject</button>
-        </td>
-      </tr>`).join('')
-    : '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">ไม่มีงานรอตรวจ</td></tr>';
+async function saveTask() {
+  const editId = document.getElementById('taskEditId').value;
+  const obj = {
+    name: document.getElementById('f-name').value.trim(),
+    assigned_email: document.getElementById('f-assignee').value,
+    group: document.getElementById('f-group').value,
+    priority: document.getElementById('f-priority').value,
+    status: document.getElementById('f-status').value,
+    due: document.getElementById('f-due').value || null,
+    progress: parseInt(document.getElementById('f-progress').value)||0,
+    note: document.getElementById('f-note').value,
+    is_personal: document.getElementById('f-personal').checked,
+    owner: users.find(u => u.email === document.getElementById('f-assignee').value)?.display_name || ''
+  };
+  const { error } = editId ? await db.from('tasks').update(obj).eq('id', editId) : await db.from('tasks').insert([obj]);
+  if (error) alert(error.message); else { closeModal('taskModal'); initData(); }
 }
 
-async function approveTask(id) {
-  const { error } = await db.from('tasks').update({ status:'Done', pm_comment:null }).eq('id', id);
-  if (error) { alert('ไม่สำเร็จ: '+error.message); return; }
-  const idx = tasks.findIndex(t=>t.id===id);
-  if (idx>=0) { tasks[idx].status='Done'; tasks[idx].pm_comment=null; }
-  renderReview(); renderTasks(); renderBottleneckAlerts();
-}
-
-function openRejectModal(id) {
-  document.getElementById('reject-task-id').value = id;
-  document.getElementById('reject-comment').value = '';
-  document.getElementById('rejectModal').classList.add('open');
-}
-
+async function deleteTask(id) { if(confirm('ยืนยันการลบงาน?')) { await db.from('tasks').delete().eq('id', id); initData(); } }
+async function approveTask(id) { await db.from('tasks').update({ status: 'Done', pm_comment: null }).eq('id', id); initData(); }
+function openRejectModal(id) { document.getElementById('reject-task-id').value = id; document.getElementById('rejectModal').classList.add('open'); }
 async function confirmReject() {
-  const id = document.getElementById('reject-task-id').value;
   const comment = document.getElementById('reject-comment').value.trim();
-  if (!comment) { alert('กรุณาระบุเหตุผลก่อนตีกลับ'); return; }
-  const { error } = await db.from('tasks').update({ status:'In Progress', pm_comment:comment }).eq('id', id);
-  if (error) { alert('ไม่สำเร็จ: '+error.message); return; }
-  const idx = tasks.findIndex(t=>t.id==id);
-  if (idx>=0) { tasks[idx].status='In Progress'; tasks[idx].pm_comment=comment; }
-  closeModal('rejectModal');
-  renderReview(); renderTasks(); renderBottleneckAlerts();
+  if(!comment) return alert('กรุณาระบุเหตุผล');
+  await db.from('tasks').update({ status: 'In Progress', pm_comment: comment }).eq('id', document.getElementById('reject-task-id').value);
+  closeModal('rejectModal'); initData();
 }
 
 // ════════════════════════════════
-//  STANDUP REVIEW PAGE
+//  CLOCK & REFRESH
 // ════════════════════════════════
-async function renderStandup() {
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const { data:logs } = await db.from('daily_logs').select('*')
-    .gte('created_at', today.toISOString())
-    .order('created_at', { ascending: false });
-  const allLogs = logs || [];
-  // group by user
-  const byUser = {};
-  allLogs.forEach(l => {
-    const name = l.display_name || l.user_email;
-    if (!byUser[name]) byUser[name] = [];
-    byUser[name].push(l);
-  });
-  // find who hasn't reported
-  const reported = new Set(allLogs.map(l => l.user_email));
-  const notReported = users.filter(u => u.role === 'user' && !reported.has(u.email));
-  let html = '';
-  if (notReported.length) {
-    html += `<div class="card" style="padding:14px 18px;border-left:3px solid var(--red)">
-      <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px">⚠️ ยังไม่ส่งรายงานวันนี้ (${notReported.length} คน)</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px">${notReported.map(u=>`<span class="no-report">${u.display_name||u.email}</span>`).join('')}</div>
-    </div>`;
-  }
-  Object.entries(byUser).forEach(([name, logs]) => {
-    html += `<div class="card" style="padding:14px 18px">
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px">
-        <div class="avatar" style="width:28px;height:28px;font-size:10px">${initials(name)}</div> ${name}
-        <span style="font-size:10px;color:var(--text3);font-weight:400">${logs.length} รายการ</span>
-      </div>
-      ${logs.map(l=>`<div class="log-entry" style="margin-bottom:6px">
-        <div class="log-entry-header"><span class="log-entry-time">${new Date(l.created_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น.</span></div>
-        <div class="log-entry-msg">${l.message.replace(/\n/g,'<br>')}</div>
-      </div>`).join('')}
-    </div>`;
-  });
-  if (!html) html = '<div style="color:var(--text3);text-align:center;padding:40px">ยังไม่มีรายงานวันนี้</div>';
-  document.getElementById('standupContainer').innerHTML = html;
-}
+setInterval(() => {
+  const now = new Date();
+  document.getElementById('clockDisplay').textContent = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0')+' น.';
+}, 1000);
 
-// ════════════════════════════════
-//  WORKLOAD OVERVIEW PAGE
-// ════════════════════════════════
-function renderWorkload() {
-  const teamUsers = users.filter(u => u.role === 'user' || u.role === 'admin');
-  document.getElementById('workloadBody').innerHTML = teamUsers.map(u => {
-    const ut = tasks.filter(t => t.assigned_email === u.email);
-    const ip = ut.filter(t=>t.status==='In Progress').length;
-    const td = ut.filter(t=>t.status==='To Do').length;
-    const pr = ut.filter(t=>t.status==='Pending Review').length;
-    const dn = ut.filter(t=>t.status==='Done').length;
-    const avg = ut.length ? Math.round(ut.reduce((s,t)=>s+t.progress,0)/ut.length) : 0;
-    return `<tr>
-      <td><div style="display:flex;align-items:center;gap:8px">
-        <div class="avatar" style="width:28px;height:28px;font-size:10px">${initials(u.display_name||u.email)}</div>
-        <div><div style="font-size:12px;font-weight:500">${u.display_name||u.email}</div>
-             <div style="font-size:10px;color:var(--text3)">${u.position||''}</div></div>
-      </div></td>
-      <td class="workload-num">${ut.length}</td>
-      <td class="workload-num" style="color:var(--blue)">${ip}</td>
-      <td class="workload-num">${td}</td>
-      <td class="workload-num" style="color:var(--amber)">${pr}</td>
-      <td class="workload-num" style="color:var(--green)">${dn}</td>
-      <td>${progBar(avg)}</td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">ไม่มีข้อมูล</td></tr>';
-}
-
-// ════════════════════════════════
-//  MY RECENT LOGS (User view)
-// ════════════════════════════════
-async function loadMyRecentLogs() {
-  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-5);
-  const { data } = await db.from('daily_logs').select('*')
-    .eq('user_email', currentUser.email)
-    .gte('created_at', cutoff.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(20);
-  const el = document.getElementById('myRecentLogs');
-  if (!data || !data.length) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:10px">ยังไม่มีบันทึกใน 5 วันที่ผ่านมา</div>';
-    return;
-  }
-  el.innerHTML = data.map(l => `
-    <div class="recent-log-item">
-      <div class="recent-log-msg">${l.message.length>100?l.message.substring(0,100)+'…':l.message}</div>
-      <div class="recent-log-date">${new Date(l.created_at).toLocaleDateString('th-TH',{day:'numeric',month:'short'})} ${new Date(l.created_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</div>
-    </div>`).join('');
-}
-
-// ── Init ──
+// Initialize
 initAuth();
 </script>
 </body>
