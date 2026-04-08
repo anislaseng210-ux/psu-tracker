@@ -689,7 +689,8 @@ const { createClient } = supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
-let tasks = [], users = [], projects = [], dailyLogs = [];
+let tasks = [], users = [], projects = [], dailyLogs = [], myTasks = [];
+let authMode = 'login';
 
 // ════════════════════════════════
 //  AUTH & UI STATE
@@ -1067,6 +1068,428 @@ async function confirmReject() {
   await db.from('tasks').update({ status: 'In Progress', pm_comment: comment }).eq('id', document.getElementById('reject-task-id').value);
   closeModal('rejectModal'); initData();
 }
+
+// ════════════════════════════════
+//  AUTH HELPERS
+// ════════════════════════════════
+function switchTab(mode) {
+  authMode = mode;
+  document.getElementById('tabLogin').classList.toggle('active', mode==='login');
+  document.getElementById('tabSignup').classList.toggle('active', mode==='signup');
+  document.getElementById('confirmWrap').style.display = mode==='signup' ? 'block' : 'none';
+  document.getElementById('signupExtraFields').style.display = mode==='signup' ? 'block' : 'none';
+  document.getElementById('authBtn').textContent = mode==='login' ? 'เข้าสู่ระบบ' : 'สมัครใช้งาน';
+  document.getElementById('authError').textContent = '';
+}
+
+function togglePass(fieldId, btn) {
+  const f = document.getElementById(fieldId);
+  const show = f.type === 'password';
+  f.type = show ? 'text' : 'password';
+  btn.innerHTML = show
+    ? `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2l12 12M6.5 6.6A2 2 0 009.4 9.5M4.2 4.3C2.5 5.4 1.3 6.8 1 8c1.5 3.5 4 5.5 7 5.5a7 7 0 003.8-1.2M7 3.6A7 7 0 0115 8c-.3 1-.9 2-1.7 2.8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`
+    : `<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M1 8C2.5 4.5 5 2.5 8 2.5s5.5 2 7 5.5c-1.5 3.5-4 5.5-7 5.5S2.5 11.5 1 8z" stroke="currentColor" stroke-width="1.3"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.3"/></svg>`;
+}
+
+// ════════════════════════════════
+//  BOTTLENECK ALERTS
+// ════════════════════════════════
+function renderBottleneckAlerts() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  const banner = document.getElementById('bottleneckBanner');
+  const active = tasks.filter(t => t.status !== 'Done');
+  const overdue = active.filter(t => t.due && new Date(t.due + 'T00:00:00') < today);
+  const dueTomorrow = active.filter(t => {
+    if (!t.due) return false;
+    const d = new Date(t.due + 'T00:00:00');
+    return d >= today && d < tomorrow;
+  });
+  const pending = tasks.filter(t => t.status === 'Pending Review');
+  if (!overdue.length && !dueTomorrow.length && !pending.length) { banner.style.display = 'none'; return; }
+  let html = '<span style="font-size:11px;font-weight:700;color:#92400e;margin-right:4px">⚠️ แจ้งเตือน:</span>';
+  overdue.forEach(t => { html += `<span class="bn-item bn-overdue">🔴 เกินกำหนด: ${t.name.length>22?t.name.substring(0,22)+'…':t.name}</span>`; });
+  dueTomorrow.forEach(t => { html += `<span class="bn-item bn-tomorrow">⏰ พรุ่งนี้: ${t.name.length>22?t.name.substring(0,22)+'…':t.name}</span>`; });
+  if (pending.length) html += `<span class="bn-item bn-stuck">🟡 รอตรวจ ${pending.length} งาน</span>`;
+  banner.innerHTML = html;
+  banner.style.display = 'flex';
+}
+
+// ════════════════════════════════
+//  USER VIEW
+// ════════════════════════════════
+function renderUserView() {
+  const q = (document.getElementById('uvTaskSearch')?.value || '').toLowerCase();
+  const st = document.getElementById('uvStatFilter')?.value || '';
+  const filtered = myTasks.filter(t =>
+    (!q || t.name.toLowerCase().includes(q) || (t.group||'').toLowerCase().includes(q)) &&
+    (!st || t.status === st)
+  );
+  document.getElementById('uv-total').textContent  = myTasks.length;
+  document.getElementById('uv-inprog').textContent = myTasks.filter(t => t.status === 'In Progress').length;
+  document.getElementById('uv-done').textContent   = myTasks.filter(t => t.status === 'Done').length;
+  document.getElementById('uv-high').textContent   = myTasks.filter(t => t.priority === 'High').length;
+  const avg = myTasks.length ? Math.round(myTasks.reduce((s,t) => s + (t.progress||0), 0) / myTasks.length) : 0;
+  document.getElementById('uv-avg').textContent    = avg + '%';
+  document.getElementById('uvTaskCount').textContent = `${filtered.length} รายการ`;
+  document.getElementById('uv-taskBody').innerHTML = filtered.length
+    ? filtered.map(t => `
+      <tr class="${t.priority==='High' ? 'row-urgent' : ''}">
+        <td>
+          <div class="task-name" style="cursor:default">${t.name}</div>
+          ${t.group ? `<span class="group-pill">${t.group}</span>` : ''}
+          ${t.pm_comment ? `<div class="pm-comment-box">💬 PM: ${t.pm_comment}</div>` : ''}
+        </td>
+        <td>${priBadge(t.priority)}</td>
+        <td>${statBadge(t.status)}</td>
+        <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
+        <td>${progBar(t.progress)}</td>
+        <td><button class="btn btn-sm btn-primary" onclick="openProgressModal(${t.id})">อัปเดต</button></td>
+      </tr>`).join('')
+    : '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีงาน</td></tr>';
+}
+
+function openProgressModal(id) {
+  const t = myTasks.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('pm-id').value         = id;
+  document.getElementById('pm-name').textContent = t.name;
+  document.getElementById('pm-status').value     = t.status;
+  document.getElementById('pm-progress').value   = t.progress;
+  document.getElementById('pm-note').value       = t.note || '';
+  document.getElementById('progressModal').classList.add('open');
+}
+
+async function saveProgress() {
+  const id  = document.getElementById('pm-id').value;
+  const obj = {
+    status:   document.getElementById('pm-status').value,
+    progress: parseInt(document.getElementById('pm-progress').value) || 0,
+    note:     document.getElementById('pm-note').value,
+  };
+  if (obj.status === 'Pending Review') obj.pm_comment = null;
+  const { error } = await db.from('tasks').update(obj).eq('id', id);
+  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+  const idx = myTasks.findIndex(t => t.id == id);
+  if (idx >= 0) myTasks[idx] = { ...myTasks[idx], ...obj };
+  closeModal('progressModal');
+  renderUserView();
+}
+
+async function submitDailyLog() {
+  const msg = document.getElementById('dailyLogText').value.trim();
+  if (!msg) { alert('กรุณากรอกบันทึกก่อน'); return; }
+  const { error } = await db.from('daily_logs').insert([{
+    user_id: currentUser.id, user_email: currentUser.email,
+    display_name: currentUser.display_name, message: msg,
+  }]);
+  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+  document.getElementById('dailyLogText').value = '';
+  document.getElementById('dailyLogCount').textContent = '0/500';
+  loadMyRecentLogs();
+  alert('บันทึกสำเร็จ! ✅');
+}
+
+async function loadMyRecentLogs() {
+  const { data } = await db.from('daily_logs')
+    .select('*').eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false }).limit(10);
+  const logs = data || [];
+  const container = document.getElementById('myRecentLogs');
+  if (!logs.length) {
+    container.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:10px">ยังไม่มีบันทึก</div>';
+    return;
+  }
+  const grouped = {};
+  logs.forEach(l => { const d = l.created_at.split('T')[0]; if (!grouped[d]) grouped[d]=[]; grouped[d].push(l); });
+  container.innerHTML = Object.entries(grouped).slice(0,5).map(([date, ls]) => `
+    <div class="recent-log-item">
+      <div style="font-size:10px;color:var(--text3);margin-bottom:4px;font-weight:600">📅 ${fmtDate(date)}</div>
+      ${ls.map(l => `<div style="font-size:12px;color:var(--text);line-height:1.5">• ${l.message.replace(/\n/g,' ')}</div>`).join('')}
+    </div>`).join('');
+}
+
+// ════════════════════════════════
+//  TEAM MANAGEMENT CRUD
+// ════════════════════════════════
+function openUserModal(id) {
+  const u = users.find(x => x.id === id);
+  if (!u) return;
+  document.getElementById('userEditId').value    = u.id;
+  document.getElementById('u-email').value       = u.email || '';
+  document.getElementById('u-name').value        = u.display_name || '';
+  document.getElementById('u-position').value    = u.position || '';
+  document.getElementById('u-dept').value        = u.dept || '';
+  document.getElementById('u-role-select').value = u.role || 'user';
+  document.getElementById('userModal').classList.add('open');
+}
+
+async function saveUser() {
+  const display_name = document.getElementById('u-name').value.trim();
+  if (!display_name) { alert('กรุณากรอกชื่อ-สกุล'); return; }
+  const editId = document.getElementById('userEditId').value;
+  const obj = {
+    display_name,
+    position: document.getElementById('u-position').value,
+    dept:     document.getElementById('u-dept').value,
+    role:     document.getElementById('u-role-select').value,
+  };
+  const { error } = await db.from('profiles').update(obj).eq('id', editId);
+  if (error) { alert('บันทึกไม่สำเร็จ: ' + error.message); return; }
+  const idx = users.findIndex(u => u.id === editId);
+  users[idx] = { ...users[idx], ...obj };
+  closeModal('userModal');
+  renderTeam();
+}
+
+async function deleteUser(id) {
+  const u = users.find(x => x.id === id);
+  if (!confirm(`ต้องการลบ "${u?.display_name || u?.email}"?\n⚠️ ไม่สามารถกู้คืนได้`)) return;
+  const { error } = await db.rpc('delete_user_by_id', { target_id: id });
+  if (error) { alert('ลบไม่สำเร็จ: ' + error.message); return; }
+  users = users.filter(x => x.id !== id);
+  renderTeam();
+}
+
+// ════════════════════════════════
+//  PROJECTS CRUD
+// ════════════════════════════════
+function daysLeft(dueDate) {
+  if (!dueDate) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return Math.ceil((new Date(dueDate + 'T00:00:00') - today) / 86400000);
+}
+function countdownBadge(dueDate) {
+  const d = daysLeft(dueDate);
+  if (d === null) return '';
+  if (d < 0)   return `<span class="countdown cd-over">เกินกำหนด ${Math.abs(d)} วัน</span>`;
+  if (d === 0) return `<span class="countdown cd-urgent">ครบกำหนดวันนี้!</span>`;
+  if (d <= 7)  return `<span class="countdown cd-warn">⏰ เหลือ ${d} วัน</span>`;
+  return `<span class="countdown cd-ok">เหลือ ${d} วัน</span>`;
+}
+
+function renderProjects() {
+  const q = (document.getElementById('projSearch').value || '').toLowerCase();
+  const filtered = projects.filter(p => !q || (p.name||'').toLowerCase().includes(q));
+  document.getElementById('projCount').textContent = `${filtered.length} โปรเจกต์`;
+  document.getElementById('projectsGrid').innerHTML = filtered.map(p => {
+    const related = tasks.filter(t => t.group === p.name);
+    const avg = related.length ? Math.round(related.reduce((s,t) => s + (t.progress||0), 0) / related.length) : 0;
+    const cd = countdownBadge(p.due_date);
+    return `
+    <div class="proj-card">
+      <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:6px">
+        <div>
+          <div style="font-size:13px;font-weight:600">${p.name}</div>
+          <div style="font-size:11px;color:var(--text2);margin-top:2px">${p.group||''}</div>
+        </div>
+        <span class="badge b-inprog" style="font-size:10px">${related.length} งาน</span>
+      </div>
+      ${cd ? `<div>${cd}</div>` : ''}
+      <div style="font-size:11px;color:var(--text2);margin:6px 0 8px;line-height:1.5">${p.description||''}</div>
+      <div style="font-size:11px;color:var(--text2);margin-bottom:4px">หัวหน้า: ${p.owner||'-'}</div>
+      <div class="proj-bar"><div class="proj-fill" style="width:${avg}%"></div></div>
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text2)">
+        <span>คืบหน้าเฉลี่ย</span><span style="color:var(--blue);font-weight:600">${avg}%</span>
+      </div>
+      <div style="display:flex;gap:4px;margin-top:10px">
+        <button class="btn btn-sm" style="flex:1" onclick="openProjModal(${p.id})">แก้ไข</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteProject(${p.id})">ลบ</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openProjModal(id) {
+  document.getElementById('projEditId').value = id || '';
+  if (id) {
+    const p = projects.find(x => x.id === id);
+    document.getElementById('projModalTitle').textContent = 'แก้ไขโปรเจกต์';
+    document.getElementById('p-name').value  = p.name;
+    document.getElementById('p-owner').value = p.owner || '';
+    document.getElementById('p-group').value = p.group || '';
+    document.getElementById('p-desc').value  = p.description || '';
+    document.getElementById('p-due').value   = p.due_date || '';
+  } else {
+    document.getElementById('projModalTitle').textContent = 'เพิ่มโปรเจกต์';
+    ['p-name','p-owner','p-group','p-desc','p-due'].forEach(x => document.getElementById(x).value = '');
+  }
+  document.getElementById('projModal').classList.add('open');
+}
+
+async function saveProject() {
+  const name = document.getElementById('p-name').value.trim();
+  if (!name) { alert('กรุณากรอกชื่อโปรเจกต์'); return; }
+  const editId = document.getElementById('projEditId').value;
+  const obj = {
+    name,
+    owner:       document.getElementById('p-owner').value,
+    group:       document.getElementById('p-group').value,
+    description: document.getElementById('p-desc').value,
+    due_date:    document.getElementById('p-due').value || null,
+  };
+  if (editId) {
+    const { error } = await db.from('projects').update(obj).eq('id', editId);
+    if (error) { alert(error.message); return; }
+    const idx = projects.findIndex(p => p.id == editId);
+    projects[idx] = { ...projects[idx], ...obj };
+  } else {
+    const { data, error } = await db.from('projects').insert([obj]).select().single();
+    if (error) { alert(error.message); return; }
+    projects.push(data);
+  }
+  closeModal('projModal');
+  renderProjects();
+}
+
+async function deleteProject(id) {
+  if (!confirm('ต้องการลบโปรเจกต์นี้?')) return;
+  const { error } = await db.from('projects').delete().eq('id', id);
+  if (error) { alert(error.message); return; }
+  projects = projects.filter(p => p.id !== id);
+  renderProjects();
+}
+
+// ════════════════════════════════
+//  TEAM WORKLOAD
+// ════════════════════════════════
+function renderWorkload() {
+  const maxActive = Math.max(...users.map(u =>
+    tasks.filter(t => t.assigned_email?.toLowerCase() === u.email?.toLowerCase() && t.status !== 'Done').length
+  ), 1);
+  document.getElementById('workloadBody').innerHTML = users.map(u => {
+    const mine  = tasks.filter(t => t.assigned_email?.toLowerCase() === u.email?.toLowerCase());
+    const ip    = mine.filter(t => t.status === 'In Progress').length;
+    const todo  = mine.filter(t => t.status === 'To Do').length;
+    const pr    = mine.filter(t => t.status === 'Pending Review').length;
+    const done  = mine.filter(t => t.status === 'Done').length;
+    const active = ip + todo + pr;
+    const pct   = Math.round(active / maxActive * 100);
+    const barColor = pct > 70 ? 'var(--red)' : pct > 40 ? '#f59e0b' : 'var(--blue)';
+    return `
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="avatar" style="width:28px;height:28px;font-size:10px;flex-shrink:0">${initials(u.display_name||u.email)}</div>
+          <div>
+            <div style="font-weight:600;font-size:12px">${u.display_name||'-'}</div>
+            <div style="font-size:10px;color:var(--text3)">${u.dept||u.position||u.email||''}</div>
+          </div>
+        </div>
+      </td>
+      <td class="workload-num">${mine.length}</td>
+      <td class="workload-num" style="color:var(--blue)">${ip}</td>
+      <td class="workload-num" style="color:var(--text2)">${todo}</td>
+      <td class="workload-num" style="color:#92400e">${pr}</td>
+      <td class="workload-num" style="color:var(--green)">${done}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="prog-bar" style="min-width:80px"><div class="prog-fill" style="width:${pct}%;background:${barColor}"></div></div>
+          <span style="font-size:11px;color:var(--text2)">${active} ค้าง</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3)">ไม่มีข้อมูล</td></tr>';
+}
+
+// ════════════════════════════════
+//  DASHBOARD CHARTS
+// ════════════════════════════════
+let chartInstances = {};
+function destroyChart(id) { if(chartInstances[id]){ chartInstances[id].destroy(); delete chartInstances[id]; } }
+
+function renderDashboard() {
+  const pub = tasks.filter(t => !t.is_personal);
+  const s   = calcStats(pub);
+  document.getElementById('d-total').textContent  = s.total;
+  document.getElementById('d-inprog').textContent = s.inprog;
+  document.getElementById('d-done').textContent   = pub.filter(t=>t.status==='Done').length;
+  document.getElementById('d-high').textContent   = s.high;
+  document.getElementById('d-avg').textContent    = s.avg + '%';
+
+  const palette = ['#1a56db','#f59e0b','#10b981','#e53935','#6366f1','#ec4899'];
+  destroyChart('chartStatus');
+  chartInstances['chartStatus'] = new Chart(document.getElementById('chartStatus'), {
+    type:'doughnut',
+    data:{labels:['In Progress','To Do','Done','Pending Review'],
+      datasets:[{data:[s.inprog, pub.filter(t=>t.status==='To Do').length, pub.filter(t=>t.status==='Done').length, pub.filter(t=>t.status==='Pending Review').length],
+        backgroundColor:['#1a56db','#9ca3af','#10b981','#f59e0b'],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}
+  });
+  destroyChart('chartPriority');
+  chartInstances['chartPriority'] = new Chart(document.getElementById('chartPriority'), {
+    type:'doughnut',
+    data:{labels:['High','Medium','Low'],
+      datasets:[{data:[s.high,pub.filter(t=>t.priority==='Medium').length,pub.filter(t=>t.priority==='Low').length],
+        backgroundColor:['#e53935','#f59e0b','#10b981'],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:11},boxWidth:12}}}}
+  });
+  const top = [...pub].sort((a,b)=>b.progress-a.progress).slice(0,8);
+  destroyChart('chartProgress');
+  chartInstances['chartProgress'] = new Chart(document.getElementById('chartProgress'), {
+    type:'bar',
+    data:{labels:top.map(t=>t.name.length>18?t.name.substring(0,18)+'…':t.name),
+      datasets:[{label:'% คืบหน้า',data:top.map(t=>t.progress),backgroundColor:'#1a56db',borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},scales:{x:{max:100,ticks:{font:{size:10}}},y:{ticks:{font:{size:10}}}}}
+  });
+  const groups = [...new Set(pub.map(t=>t.group||'ทั่วไป'))];
+  destroyChart('chartGroup');
+  chartInstances['chartGroup'] = new Chart(document.getElementById('chartGroup'), {
+    type:'bar',
+    data:{labels:groups,
+      datasets:[{label:'จำนวนงาน',data:groups.map(g=>pub.filter(t=>(t.group||'ทั่วไป')===g).length),backgroundColor:palette,borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},scales:{y:{ticks:{stepSize:1,font:{size:10}}},x:{ticks:{font:{size:10}}}}}
+  });
+}
+
+// ════════════════════════════════
+//  WEEKLY REPORT
+// ════════════════════════════════
+function renderReport() {
+  const pub = tasks.filter(t => !t.is_personal);
+  const s   = calcStats(pub);
+  document.getElementById('r-total').textContent  = s.total;
+  document.getElementById('r-inprog').textContent = s.inprog;
+  document.getElementById('r-todo').textContent   = pub.filter(t=>t.status==='To Do').length;
+  document.getElementById('r-done').textContent   = pub.filter(t=>t.status==='Done').length;
+  document.getElementById('r-avg').textContent    = s.avg + '%';
+  const now = new Date();
+  const months=["มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน","กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม"];
+  document.getElementById('reportDate').textContent = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()+543} · งานสารสนเทศ กองพัฒนานักศึกษา`;
+  const rows = (arr, showStat) => arr.map(t=>`<tr>
+    <td><div class="task-name">${t.name}</div></td>
+    <td><div class="cell-muted">${getOwnerName(t.assigned_email)}</div></td>
+    <td>${showStat ? statBadge(t.status) : priBadge(t.priority)}</td>
+    <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
+    <td>${progBar(t.progress)}</td>
+  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text3);padding:14px">ไม่มีข้อมูล</td></tr>';
+  document.getElementById('reportHighBody').innerHTML   = rows(pub.filter(t=>t.priority==='High'), true);
+  document.getElementById('reportInProgBody').innerHTML = rows(pub.filter(t=>t.status==='In Progress'), false);
+  document.getElementById('reportTodoBody').innerHTML   = rows(pub.filter(t=>t.status==='To Do'), false);
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-7);
+  const recent = dailyLogs.filter(l => new Date(l.created_at) >= cutoff);
+  if (recent.length) {
+    const byUser = {};
+    recent.forEach(l => { const n=l.display_name||l.user_email; if(!byUser[n]) byUser[n]=[]; byUser[n].push(l); });
+    document.getElementById('reportLogsBody').innerHTML = Object.entries(byUser).map(([name,logs])=>`
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px;font-weight:600">${name} <span style="font-size:11px;color:var(--text3);font-weight:400">${logs.length} รายการ</span></div>
+        ${logs.slice(0,3).map(l=>`<div style="display:flex;gap:8px;font-size:11px;margin-bottom:2px">
+          <span style="color:var(--text3);white-space:nowrap">${new Date(l.created_at).toLocaleDateString('th-TH',{day:'numeric',month:'short'})}</span>
+          <span>${l.message.length>120?l.message.substring(0,120)+'…':l.message}</span>
+        </div>`).join('')}
+      </div>`).join('');
+  } else {
+    document.getElementById('reportLogsBody').innerHTML = '<div style="color:var(--text3);font-size:12px">ไม่มีบันทึกใน 7 วันที่ผ่านมา</div>';
+  }
+}
+
+// Modal backdrop close
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if(e.target===m) m.classList.remove('open'); });
+});
 
 // ════════════════════════════════
 //  CLOCK & REFRESH
