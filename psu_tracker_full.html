@@ -1,3 +1,8 @@
+<!--
+  PSU Tracker DB Migration (run in Supabase SQL Editor):
+  ALTER TABLE tasks ADD COLUMN pm_comment VARCHAR(255) NULL;
+  -- เพิ่ม 'Pending Review' ในค่า status (ถ้าเป็น VARCHAR ไม่ต้องแก้เพิ่ม)
+-->
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -84,15 +89,23 @@ tr:hover td{background:#f9fafb}
 .cell-muted{font-size:11px;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
 .b-high{background:#fde8e8;color:#991b1b}.b-medium{background:#fef3c7;color:#92400e}.b-low{background:#ecfdf5;color:#065f46}
-.b-inprog{background:#e0e7ff;color:#3730a3}.b-todo{background:#f3f4f6;color:#374151}.b-done{background:#d1fae5;color:#065f46}
+.b-inprog{background:#e0e7ff;color:#3730a3}.b-todo{background:#f3f4f6;color:#374151}.b-done{background:#d1fae5;color:#065f46}.b-pending{background:#fef3c7;color:#92400e}
 .dot{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
-.d-high{background:var(--red)}.d-medium{background:#f59e0b}.d-low{background:#10b981}.d-inprog{background:#6366f1}.d-todo{background:#9ca3af}.d-done{background:#10b981}
+.d-high{background:var(--red)}.d-medium{background:#f59e0b}.d-low{background:#10b981}.d-inprog{background:#6366f1}.d-todo{background:#9ca3af}.d-done{background:#10b981}.d-pending{background:#f59e0b}
 .prog-wrap{display:flex;align-items:center;gap:6px}
 .prog-bar{flex:1;height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden}
 .prog-fill{height:100%;background:var(--blue);border-radius:2px}
 .prog-text{font-size:11px;color:var(--text2);min-width:28px}
 .row-urgent td:first-child{border-left:2px solid var(--red)}
 .personal-badge{display:inline-flex;align-items:center;padding:1px 6px;border-radius:99px;font-size:10px;font-weight:600;background:#fdf4ff;color:#7e22ce;margin-left:4px}
+.group-pill{display:inline-block;padding:1px 7px;border-radius:99px;font-size:10px;font-weight:500;background:var(--blue-light);color:var(--blue);margin-top:2px}
+.bottleneck-banner{padding:10px 22px;font-size:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex-shrink:0;border-bottom:var(--border);background:#fffbeb}
+.bn-item{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;cursor:default}
+.bn-overdue{background:#fee2e2;color:#991b1b}.bn-tomorrow{background:#fef3c7;color:#92400e}.bn-stuck{background:#f3f4f6;color:#374151}
+.pm-comment-box{margin-top:4px;padding:6px 10px;background:#fef3c7;border-radius:6px;font-size:11px;color:#92400e;border-left:3px solid #f59e0b}
+.recent-log-item{padding:8px 12px;background:var(--surface2);border-radius:var(--r8);margin-bottom:6px;font-size:12px}
+.workload-num{font-size:18px;font-weight:700;text-align:center}
+.no-report{font-size:10px;padding:2px 8px;border-radius:99px;background:#fee2e2;color:#991b1b;font-weight:600}
 
 /* ── Modal ── */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;align-items:center;justify-content:center}
@@ -281,6 +294,21 @@ textarea{resize:vertical;min-height:60px}
     <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="14" height="14" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M1 6h14M6 6v9" stroke="currentColor" stroke-width="1"/></svg>
     Dashboard
   </div>
+
+  <div class="nav-section" id="nav-section-pm" style="display:none">PM Dashboard</div>
+  <div class="nav-item" id="nav-review" onclick="navigate('review')" style="display:none">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M3 8l3 3 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    ตรวจรับงาน
+    <span class="nav-badge" id="reviewBadge">0</span>
+  </div>
+  <div class="nav-item" id="nav-standup" onclick="navigate('standup')" style="display:none">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M2 3h12v2H2zM2 7h8v2H2zM2 11h10v2H2z" stroke="currentColor" stroke-width="1.2"/></svg>
+    ตรวจรายงานประจำวัน
+  </div>
+  <div class="nav-item" id="nav-workload" onclick="navigate('workload')" style="display:none">
+    <svg class="nav-icon" viewBox="0 0 16 16" fill="none"><path d="M1 3h3v10H1zM6 6h3v7H6zM11 1h3v12h-3z" stroke="currentColor" stroke-width="1.2"/></svg>
+    ภาระงานทีม
+  </div>
 </div>
 
 <!-- ════ MAIN ════ -->
@@ -301,6 +329,9 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 
+  <!-- ── Bottleneck Alert Banner ── -->
+  <div id="bottleneckBanner" class="bottleneck-banner" style="display:none"></div>
+
   <!-- ── Page: Task Tracking ── -->
   <div class="page active" id="page-tasks">
     <div class="stat-row">
@@ -318,7 +349,7 @@ textarea{resize:vertical;min-height:60px}
       </select>
       <select class="fselect" id="statFilter" onchange="renderTasks()">
         <option value="">Status: ทั้งหมด</option>
-        <option>In Progress</option><option>To Do</option><option>Done</option>
+        <option>In Progress</option><option>To Do</option><option>Done</option><option>Pending Review</option>
       </select>
       <button class="btn btn-primary" onclick="renderTasks()">รีเฟรช</button>
       <span class="count-label" id="taskCount"></span>
@@ -465,6 +496,60 @@ textarea{resize:vertical;min-height:60px}
     <div class="grid-cards" id="projectsGrid"></div>
   </div>
 
+  <!-- ── Page: Review (PM) ── -->
+  <div class="page" id="page-review">
+    <div class="filter-bar">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">✅ ตรวจรับงาน (Pending Review)</span>
+      <button class="btn btn-primary" onclick="renderReview()">รีเฟรช</button>
+      <span class="count-label" id="reviewCount"></span>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th style="width:28%">ชื่องาน</th>
+          <th style="width:14%">ผู้รับผิดชอบ</th>
+          <th style="width:10%">หมวดหมู่</th>
+          <th style="width:8%">Priority</th>
+          <th style="width:10%">Due Date</th>
+          <th style="width:10%">% คืบหน้า</th>
+          <th style="width:20%">จัดการ</th>
+        </tr></thead>
+        <tbody id="reviewBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── Page: Stand-up Review (PM) ── -->
+  <div class="page" id="page-standup">
+    <div class="filter-bar">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">📋 รายงานประจำวัน (จัดกลุ่มตามพนักงาน)</span>
+      <button class="btn btn-primary" onclick="renderStandup()">รีเฟรช</button>
+    </div>
+    <div id="standupContainer" style="display:flex;flex-direction:column;gap:12px"></div>
+  </div>
+
+  <!-- ── Page: Workload Overview (PM) ── -->
+  <div class="page" id="page-workload">
+    <div class="filter-bar">
+      <span style="font-size:13px;font-weight:600;color:var(--text)">📊 ภาระงานทีม (Team Workload)</span>
+      <button class="btn btn-primary" onclick="renderWorkload()">รีเฟรช</button>
+    </div>
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th style="width:25%">พนักงาน</th>
+          <th style="width:12%">งานทั้งหมด</th>
+          <th style="width:12%">In Progress</th>
+          <th style="width:12%">To Do</th>
+          <th style="width:12%">Pending Review</th>
+          <th style="width:12%">Done</th>
+          <th style="width:15%">คืบหน้าเฉลี่ย</th>
+        </tr></thead>
+        <tbody id="workloadBody"></tbody>
+      </table>
+    </div>
+  </div>
+
 </div><!-- end .main -->
 </div><!-- end .app -->
 
@@ -492,15 +577,23 @@ textarea{resize:vertical;min-height:60px}
       <div class="stat-card"><div class="stat-label">High Priority</div><div class="stat-val c-red" id="uv-high">0</div></div>
       <div class="stat-card"><div class="stat-label">คืบหน้าเฉลี่ย</div><div class="stat-val c-green" id="uv-avg">0%</div></div>
     </div>
+    <div class="filter-bar">
+      <input class="search-box" type="text" placeholder="ค้นหาชื่องาน / กลุ่ม..." id="uvTaskSearch" oninput="renderUserView()">
+      <select class="fselect" id="uvStatFilter" onchange="renderUserView()">
+        <option value="">Status: ทั้งหมด</option>
+        <option>In Progress</option><option>To Do</option><option>Pending Review</option><option>Done</option>
+      </select>
+      <span class="count-label" id="uvTaskCount"></span>
+    </div>
     <div class="card">
       <table>
         <thead><tr>
-          <th style="width:35%">ชื่องาน</th>
-          <th style="width:12%">Priority</th>
-          <th style="width:12%">Status</th>
-          <th style="width:11%">Due Date</th>
-          <th style="width:18%">% คืบหน้า</th>
-          <th style="width:12%">อัปเดต</th>
+          <th style="width:30%">ชื่องาน</th>
+          <th style="width:10%">Priority</th>
+          <th style="width:10%">Status</th>
+          <th style="width:10%">Due Date</th>
+          <th style="width:15%">% คืบหน้า</th>
+          <th style="width:25%">อัปเดต</th>
         </tr></thead>
         <tbody id="uv-taskBody"></tbody>
       </table>
@@ -516,6 +609,11 @@ textarea{resize:vertical;min-height:60px}
         <span id="dailyLogCount" style="font-size:11px;color:var(--text3)">0/500</span>
         <button class="btn btn-primary" onclick="submitDailyLog()">บันทึก</button>
       </div>
+    </div>
+    <!-- My Recent Logs (last 5 days) -->
+    <div class="card" style="padding:18px 20px">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">📋 ประวัติบันทึกย้อนหลัง (5 วัน)</div>
+      <div id="myRecentLogs"><div style="color:var(--text3);font-size:12px;text-align:center;padding:10px">กำลังโหลด...</div></div>
     </div>
   </div>
 </div>
@@ -533,7 +631,7 @@ textarea{resize:vertical;min-height:60px}
       <div class="form-row">
         <div class="form-group"><label>Status</label>
           <select id="pm-status">
-            <option>To Do</option><option>In Progress</option><option>Done</option>
+            <option>To Do</option><option>In Progress</option><option>Pending Review</option><option>Done</option>
           </select>
         </div>
         <div class="form-group"><label>% ความคืบหน้า</label>
@@ -574,7 +672,7 @@ textarea{resize:vertical;min-height:60px}
           <select id="f-priority"><option>Medium</option><option>High</option><option>Low</option></select>
         </div>
         <div class="form-group"><label>Status</label>
-          <select id="f-status"><option>To Do</option><option>In Progress</option><option>Done</option></select>
+          <select id="f-status"><option>To Do</option><option>In Progress</option><option>Pending Review</option><option>Done</option></select>
         </div>
       </div>
       <div class="form-row">
@@ -660,6 +758,27 @@ textarea{resize:vertical;min-height:60px}
     <div class="modal-footer">
       <button class="btn" onclick="closeModal('projModal')">ยกเลิก</button>
       <button class="btn btn-primary" onclick="saveProject()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL: Reject Comment (PM) ════ -->
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal" style="width:420px">
+    <div class="modal-header">
+      <span class="modal-title">ตีกลับงาน (Reject)</span>
+      <button class="modal-close" onclick="closeModal('rejectModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="reject-task-id">
+      <div class="form-group">
+        <label>ชี้แจงเหตุผล (บังคับกรอก) *</label>
+        <textarea id="reject-comment" maxlength="255" placeholder="ระบุสิ่งที่ต้องแก้ไข..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('rejectModal')">ยกเลิก</button>
+      <button class="btn btn-danger" onclick="confirmReject()">ตีกลับ</button>
     </div>
   </div>
 </div>
@@ -788,6 +907,11 @@ async function setUserUI(user) {
     document.getElementById('nav-users').style.display         = isSuperAdmin ? 'flex' : 'none';
     document.getElementById('nav-roles').style.display         = isSuperAdmin ? 'flex' : 'none';
     document.getElementById('nav-section-admin').style.display = isSuperAdmin ? 'block' : 'none';
+    // PM Dashboard nav — visible for admin & superadmin
+    document.getElementById('nav-section-pm').style.display = 'block';
+    document.getElementById('nav-review').style.display     = 'flex';
+    document.getElementById('nav-standup').style.display    = 'flex';
+    document.getElementById('nav-workload').style.display   = 'flex';
 
     document.getElementById('userInitial').textContent = initial;
     document.getElementById('userEmail').textContent   = email;
@@ -818,20 +942,30 @@ async function initUserView() {
   myTasks = data || [];
   showLoading(false);
   renderUserView();
+  loadMyRecentLogs();
 }
 
 function renderUserView() {
+  const q  = (document.getElementById('uvTaskSearch').value||'').toLowerCase();
+  const sf = document.getElementById('uvStatFilter').value;
+  const filtered = myTasks.filter(t =>
+    (!q || (t.name||'').toLowerCase().includes(q) || (t.group||'').toLowerCase().includes(q)) &&
+    (!sf || t.status === sf)
+  );
   const s = calcStats(myTasks);
   document.getElementById('uv-total').textContent  = s.total;
   document.getElementById('uv-inprog').textContent = s.inprog;
   document.getElementById('uv-done').textContent   = s.done;
   document.getElementById('uv-high').textContent   = s.high;
   document.getElementById('uv-avg').textContent    = s.avg + '%';
-  document.getElementById('uv-taskBody').innerHTML = myTasks.length
-    ? myTasks.map(t => `
+  document.getElementById('uvTaskCount').textContent = `แสดง ${filtered.length} / ${myTasks.length} รายการ`;
+  document.getElementById('uv-taskBody').innerHTML = filtered.length
+    ? filtered.map(t => `
       <tr class="${t.priority==='High'?'row-urgent':''}">
         <td><div class="task-name" style="cursor:default">${t.name}</div>
-            ${t.note ? `<div class="cell-muted" style="font-size:10px;margin-top:2px">${t.note}</div>` : ''}</td>
+            ${t.group ? `<div class="group-pill">${t.group}</div>` : ''}
+            ${t.note ? `<div class="cell-muted" style="font-size:10px;margin-top:2px">${t.note}</div>` : ''}
+            ${t.pm_comment ? `<div class="pm-comment-box">💬 PM: ${t.pm_comment}</div>` : ''}</td>
         <td>${priBadge(t.priority)}</td>
         <td>${statBadge(t.status)}</td>
         <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
@@ -883,6 +1017,7 @@ async function submitDailyLog() {
   document.getElementById('dailyLogText').value = '';
   document.getElementById('dailyLogCount').textContent = '0/500';
   alert('บันทึกสำเร็จ!');
+  loadMyRecentLogs();
 }
 
 // ════════════════════════════════
@@ -914,6 +1049,7 @@ async function initData() {
   }
   showLoading(false);
   renderTasks();
+  renderBottleneckAlerts();
 }
 
 async function initAuth() {
@@ -941,7 +1077,8 @@ function showLoading(v) {
 const pageTitles = {
   tasks:"มุมมองติดตามงาน", dashboard:"Dashboard", report:"Weekly Status Report",
   manage:"จัดการงาน", users:"จัดการผู้ใช้", projects:"จัดการโปรเจกต์",
-  roles:"จัดการสิทธิ์", logs:"บันทึกประจำวัน"
+  roles:"จัดการสิทธิ์", logs:"บันทึกประจำวัน",
+  review:"ตรวจรับงาน", standup:"ตรวจรายงานประจำวัน", workload:"ภาระงานทีม"
 };
 
 function navigate(page) {
@@ -960,6 +1097,9 @@ function navigate(page) {
   if(page === 'dashboard') renderDashboard();
   if(page === 'roles')     renderRoles();
   if(page === 'logs')      renderDailyLogs();
+  if(page === 'review')    renderReview();
+  if(page === 'standup')   renderStandup();
+  if(page === 'workload')  renderWorkload();
 }
 
 // ════════════════════════════════
@@ -971,8 +1111,8 @@ function priBadge(p) {
   return `<span class="badge ${cls}"><span class="dot ${dc}"></span>${p}</span>`;
 }
 function statBadge(s) {
-  const cls = {'In Progress':'b-inprog','To Do':'b-todo','Done':'b-done'}[s]||'b-todo';
-  const dc  = {'In Progress':'d-inprog','To Do':'d-todo','Done':'d-done'}[s]||'d-todo';
+  const cls = {'In Progress':'b-inprog','To Do':'b-todo','Done':'b-done','Pending Review':'b-pending'}[s]||'b-todo';
+  const dc  = {'In Progress':'d-inprog','To Do':'d-todo','Done':'d-done','Pending Review':'d-pending'}[s]||'d-todo';
   return `<span class="badge ${cls}"><span class="dot ${dc}"></span>${s}</span>`;
 }
 function progBar(v) {
@@ -1019,7 +1159,7 @@ function renderTasks() {
   const st  = document.getElementById('statFilter').value;
   const visible  = tasks.filter(t => isAdmin() || !t.is_personal);
   const filtered = visible.filter(t =>
-    (!q || (t.name||'').toLowerCase().includes(q) || (t.owner||'').toLowerCase().includes(q)) &&
+    (!q || (t.name||'').toLowerCase().includes(q) || (t.owner||'').toLowerCase().includes(q) || (t.group||'').toLowerCase().includes(q)) &&
     (!pri || t.priority===pri) && (!st || t.status===st)
   );
   const st2 = calcStats(visible);
@@ -1033,7 +1173,8 @@ function renderTasks() {
   document.getElementById('taskBody').innerHTML = filtered.map(t => `
     <tr class="${t.priority==='High'?'row-urgent':''}">
       <td style="color:var(--text3);font-size:11px;text-align:center">${t.id}</td>
-      <td><div class="task-name" title="${t.name}">${t.name}${t.is_personal?'<span class="personal-badge">🔒</span>':''}</div></td>
+      <td><div class="task-name" title="${t.name}">${t.name}${t.is_personal?'<span class="personal-badge">🔒</span>':''}</div>
+          ${t.group ? `<div class="group-pill">${t.group}</div>` : ''}</td>
       <td><div class="cell-muted">${t.owner||'-'}</div></td>
       <td><div class="cell-muted">${t.group||'-'}</div></td>
       <td>${priBadge(t.priority)}</td>
@@ -1549,6 +1690,178 @@ const AY = academicYear();
 const ORG_SUFFIX = `งานสารสนเทศ กองพัฒนานักศึกษา มหาวิทยาลัยสงขลานครินทร์ · ปีการศึกษา ${AY}`;
 document.getElementById('pageSub').textContent = ORG_SUFFIX;
 document.getElementById('reportDate').textContent = ORG_SUFFIX;
+
+// ════════════════════════════════
+//  BOTTLENECK ALERTS
+// ════════════════════════════════
+function renderBottleneckAlerts() {
+  const banner = document.getElementById('bottleneckBanner');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const items = [];
+  tasks.forEach(t => {
+    if (t.status === 'Done') return;
+    const dl = daysLeft(t.due);
+    if (dl !== null && dl < 0) items.push({type:'overdue', task:t, days:Math.abs(dl)});
+    else if (dl === 0 || dl === 1) items.push({type:'tomorrow', task:t, days:dl});
+    if (t.status === 'To Do' && t.created_at) {
+      const created = new Date(t.created_at); created.setHours(0,0,0,0);
+      const age = Math.ceil((today - created) / 86400000);
+      if (age > 7) items.push({type:'stuck', task:t, days:age});
+    }
+  });
+  if (!items.length) { banner.style.display='none'; return; }
+  banner.style.display='flex';
+  banner.innerHTML = '⚠️ <strong style="margin-right:4px">งานคอขวด:</strong> ' + items.map(i => {
+    if (i.type==='overdue') return `<span class="bn-item bn-overdue">🔴 ${i.task.name} (เลยกำหนด ${i.days} วัน)</span>`;
+    if (i.type==='tomorrow') return `<span class="bn-item bn-tomorrow">🟡 ${i.task.name} (${i.days===0?'วันนี้':'พรุ่งนี้'})</span>`;
+    return `<span class="bn-item bn-stuck">⚪ ${i.task.name} (To Do ${i.days} วัน)</span>`;
+  }).join('');
+  // update review badge count
+  const pending = tasks.filter(t => t.status==='Pending Review').length;
+  document.getElementById('reviewBadge').textContent = pending;
+}
+
+// ════════════════════════════════
+//  REVIEW PAGE (PM approve/reject)
+// ════════════════════════════════
+function renderReview() {
+  const pending = tasks.filter(t => t.status === 'Pending Review');
+  document.getElementById('reviewCount').textContent = `${pending.length} รายการ`;
+  document.getElementById('reviewBody').innerHTML = pending.length
+    ? pending.map(t => `
+      <tr>
+        <td><div class="task-name">${t.name}</div></td>
+        <td><div class="cell-muted">${t.owner||'-'}</div></td>
+        <td><div class="cell-muted">${t.group||'-'}</div></td>
+        <td>${priBadge(t.priority)}</td>
+        <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
+        <td>${progBar(t.progress)}</td>
+        <td style="display:flex;gap:4px">
+          <button class="btn btn-sm" style="background:#d1fae5;color:#065f46" onclick="approveTask(${t.id})">✅ Approve</button>
+          <button class="btn btn-sm btn-danger" onclick="openRejectModal(${t.id})">❌ Reject</button>
+        </td>
+      </tr>`).join('')
+    : '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">ไม่มีงานรอตรวจ</td></tr>';
+}
+
+async function approveTask(id) {
+  const { error } = await db.from('tasks').update({ status:'Done', pm_comment:null }).eq('id', id);
+  if (error) { alert('ไม่สำเร็จ: '+error.message); return; }
+  const idx = tasks.findIndex(t=>t.id===id);
+  if (idx>=0) { tasks[idx].status='Done'; tasks[idx].pm_comment=null; }
+  renderReview(); renderTasks(); renderBottleneckAlerts();
+}
+
+function openRejectModal(id) {
+  document.getElementById('reject-task-id').value = id;
+  document.getElementById('reject-comment').value = '';
+  document.getElementById('rejectModal').classList.add('open');
+}
+
+async function confirmReject() {
+  const id = document.getElementById('reject-task-id').value;
+  const comment = document.getElementById('reject-comment').value.trim();
+  if (!comment) { alert('กรุณาระบุเหตุผลก่อนตีกลับ'); return; }
+  const { error } = await db.from('tasks').update({ status:'In Progress', pm_comment:comment }).eq('id', id);
+  if (error) { alert('ไม่สำเร็จ: '+error.message); return; }
+  const idx = tasks.findIndex(t=>t.id==id);
+  if (idx>=0) { tasks[idx].status='In Progress'; tasks[idx].pm_comment=comment; }
+  closeModal('rejectModal');
+  renderReview(); renderTasks(); renderBottleneckAlerts();
+}
+
+// ════════════════════════════════
+//  STANDUP REVIEW PAGE
+// ════════════════════════════════
+async function renderStandup() {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const { data:logs } = await db.from('daily_logs').select('*')
+    .gte('created_at', today.toISOString())
+    .order('created_at', { ascending: false });
+  const allLogs = logs || [];
+  // group by user
+  const byUser = {};
+  allLogs.forEach(l => {
+    const name = l.display_name || l.user_email;
+    if (!byUser[name]) byUser[name] = [];
+    byUser[name].push(l);
+  });
+  // find who hasn't reported
+  const reported = new Set(allLogs.map(l => l.user_email));
+  const notReported = users.filter(u => u.role === 'user' && !reported.has(u.email));
+  let html = '';
+  if (notReported.length) {
+    html += `<div class="card" style="padding:14px 18px;border-left:3px solid var(--red)">
+      <div style="font-size:12px;font-weight:600;color:var(--red);margin-bottom:8px">⚠️ ยังไม่ส่งรายงานวันนี้ (${notReported.length} คน)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${notReported.map(u=>`<span class="no-report">${u.display_name||u.email}</span>`).join('')}</div>
+    </div>`;
+  }
+  Object.entries(byUser).forEach(([name, logs]) => {
+    html += `<div class="card" style="padding:14px 18px">
+      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:8px;display:flex;align-items:center;gap:8px">
+        <div class="avatar" style="width:28px;height:28px;font-size:10px">${initials(name)}</div> ${name}
+        <span style="font-size:10px;color:var(--text3);font-weight:400">${logs.length} รายการ</span>
+      </div>
+      ${logs.map(l=>`<div class="log-entry" style="margin-bottom:6px">
+        <div class="log-entry-header"><span class="log-entry-time">${new Date(l.created_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น.</span></div>
+        <div class="log-entry-msg">${l.message.replace(/\n/g,'<br>')}</div>
+      </div>`).join('')}
+    </div>`;
+  });
+  if (!html) html = '<div style="color:var(--text3);text-align:center;padding:40px">ยังไม่มีรายงานวันนี้</div>';
+  document.getElementById('standupContainer').innerHTML = html;
+}
+
+// ════════════════════════════════
+//  WORKLOAD OVERVIEW PAGE
+// ════════════════════════════════
+function renderWorkload() {
+  const teamUsers = users.filter(u => u.role === 'user' || u.role === 'admin');
+  document.getElementById('workloadBody').innerHTML = teamUsers.map(u => {
+    const ut = tasks.filter(t => t.assigned_email === u.email);
+    const ip = ut.filter(t=>t.status==='In Progress').length;
+    const td = ut.filter(t=>t.status==='To Do').length;
+    const pr = ut.filter(t=>t.status==='Pending Review').length;
+    const dn = ut.filter(t=>t.status==='Done').length;
+    const avg = ut.length ? Math.round(ut.reduce((s,t)=>s+t.progress,0)/ut.length) : 0;
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:8px">
+        <div class="avatar" style="width:28px;height:28px;font-size:10px">${initials(u.display_name||u.email)}</div>
+        <div><div style="font-size:12px;font-weight:500">${u.display_name||u.email}</div>
+             <div style="font-size:10px;color:var(--text3)">${u.position||''}</div></div>
+      </div></td>
+      <td class="workload-num">${ut.length}</td>
+      <td class="workload-num" style="color:var(--blue)">${ip}</td>
+      <td class="workload-num">${td}</td>
+      <td class="workload-num" style="color:var(--amber)">${pr}</td>
+      <td class="workload-num" style="color:var(--green)">${dn}</td>
+      <td>${progBar(avg)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">ไม่มีข้อมูล</td></tr>';
+}
+
+// ════════════════════════════════
+//  MY RECENT LOGS (User view)
+// ════════════════════════════════
+async function loadMyRecentLogs() {
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate()-5);
+  const { data } = await db.from('daily_logs').select('*')
+    .eq('user_email', currentUser.email)
+    .gte('created_at', cutoff.toISOString())
+    .order('created_at', { ascending: false })
+    .limit(20);
+  const el = document.getElementById('myRecentLogs');
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:10px">ยังไม่มีบันทึกใน 5 วันที่ผ่านมา</div>';
+    return;
+  }
+  el.innerHTML = data.map(l => `
+    <div class="recent-log-item">
+      <div class="recent-log-msg">${l.message.length>100?l.message.substring(0,100)+'…':l.message}</div>
+      <div class="recent-log-date">${new Date(l.created_at).toLocaleDateString('th-TH',{day:'numeric',month:'short'})} ${new Date(l.created_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}</div>
+    </div>`).join('');
+}
 
 // ── Init ──
 initAuth();
