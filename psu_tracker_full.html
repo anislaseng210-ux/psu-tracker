@@ -1,3 +1,7 @@
+<!--
+  PSU Tracker DB Migration (run in Supabase SQL Editor):
+  ALTER TABLE tasks ADD COLUMN pm_comment VARCHAR(255) NULL;
+-->
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -192,6 +196,7 @@ textarea{resize:vertical;min-height:60px}
 </head>
 <body>
 
+<!-- ════ LOGIN SCREEN ════ -->
 <div id="loginScreen">
   <div class="login-card">
     <div class="login-logo">PSU<br>มอ.</div>
@@ -224,6 +229,7 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
+<!-- Loading Overlay -->
 <div id="loadingOverlay">
   <div class="spinner"></div>
   <span style="font-size:13px;color:var(--text2)">กำลังโหลดข้อมูล...</span>
@@ -233,6 +239,7 @@ textarea{resize:vertical;min-height:60px}
 
 <div class="app" id="adminView" style="display:none">
 
+<!-- ════ SIDEBAR ════ -->
 <div class="sidebar">
   <div class="logo-wrap">
     <div class="logo-badge">PSU<br>มอ.</div>
@@ -278,6 +285,7 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
+<!-- ════ MAIN ════ -->
 <div class="main">
   <div class="topbar">
     <div>
@@ -297,6 +305,7 @@ textarea{resize:vertical;min-height:60px}
 
   <div id="bottleneckBanner" class="bottleneck-banner" style="display:none"></div>
 
+  <!-- ── Page: Task Board (Consolidated) ── -->
   <div class="page active" id="page-taskboard">
     <div class="stat-row">
       <div class="stat-card"><div class="stat-label">งานทั้งหมด</div><div class="stat-val" id="s-total">0</div></div>
@@ -337,6 +346,7 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 
+  <!-- ── Page: Team Management (Consolidated) ── -->
   <div class="page" id="page-team">
     <div class="filter-bar">
       <input class="search-box" type="text" placeholder="ค้นหาชื่อ / แผนก / อีเมล..." id="teamSearch" oninput="renderTeam()">
@@ -356,6 +366,7 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 
+  <!-- ── Page: Daily Reports (Consolidated) ── -->
   <div class="page" id="page-dailyreports">
     <div class="section-title">📅 สรุปรายงานประจำวัน (Stand-up Review)</div>
     <div id="standupContainer" style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px"></div>
@@ -369,6 +380,7 @@ textarea{resize:vertical;min-height:60px}
     <div id="logsContainer" style="display:flex;flex-direction:column;gap:20px"></div>
   </div>
 
+  <!-- ── Remaining Pages ── -->
   <div class="page" id="page-dashboard">
     <div class="stat-row">
       <div class="stat-card"><div class="stat-label">งานทั้งหมด</div><div class="stat-val" id="d-total">0</div></div>
@@ -450,7 +462,11 @@ textarea{resize:vertical;min-height:60px}
     </div>
   </div>
 
-</div></div><div id="userView">
+</div><!-- end .main -->
+</div><!-- end .app -->
+
+<!-- ════ USER VIEW ════ -->
+<div id="userView">
   <div class="uv-header">
     <div>
       <div class="uv-greeting">สวัสดี, <span id="uv-name">...</span> 👋</div>
@@ -509,6 +525,7 @@ textarea{resize:vertical;min-height:60px}
   </div>
 </div>
 
+<!-- ════ MODALS ════ -->
 <div class="modal-overlay" id="progressModal">
   <div class="modal" style="width:400px">
     <div class="modal-header">
@@ -673,33 +690,6 @@ const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
 let tasks = [], users = [], projects = [], dailyLogs = [];
-let myTasks = [];
-
-// ════════════════════════════════
-//  AUTH UI LOGIC (RESTORING LOGIN FIX)
-// ════════════════════════════════
-let authMode = 'login';
-
-function switchTab(tab) {
-  authMode = tab;
-  document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
-  document.getElementById('tabSignup').classList.toggle('active', tab === 'signup');
-  document.getElementById('confirmWrap').style.display = tab === 'signup' ? 'block' : 'none';
-  document.getElementById('signupExtraFields').style.display = tab === 'signup' ? 'block' : 'none';
-  document.getElementById('authBtn').textContent = tab === 'login' ? 'เข้าสู่ระบบ' : 'สมัครใช้งาน';
-  document.getElementById('authError').textContent = '';
-}
-
-function togglePass(id, btn) {
-  const input = document.getElementById(id);
-  if(input.type === 'password') {
-    input.type = 'text';
-    btn.style.color = 'var(--blue)';
-  } else {
-    input.type = 'password';
-    btn.style.color = 'var(--text3)';
-  }
-}
 
 // ════════════════════════════════
 //  AUTH & UI STATE
@@ -751,8 +741,6 @@ async function setUserUI(user) {
 async function doAuth() {
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
-  
-  // NOTE: Uncomment this below to test with general emails like @gmail.com
   if (!email.endsWith('@psu.ac.th')) { alert('กรุณาใช้ email @psu.ac.th'); return; }
   
   const { error } = authMode === 'login'
@@ -1079,220 +1067,6 @@ async function confirmReject() {
   await db.from('tasks').update({ status: 'In Progress', pm_comment: comment }).eq('id', document.getElementById('reject-task-id').value);
   closeModal('rejectModal'); initData();
 }
-
-// ════════════════════════════════
-//  MISSING USER FUNCTIONS RESTORED
-// ════════════════════════════════
-function renderUserView() {
-  const q = document.getElementById('uvTaskSearch').value.toLowerCase();
-  const st = document.getElementById('uvStatFilter').value;
-  const filtered = (myTasks || []).filter(t =>
-    (!q || t.name.toLowerCase().includes(q) || (t.group||'').toLowerCase().includes(q)) &&
-    (!st || t.status === st)
-  );
-  const s = calcStats(myTasks || []);
-  document.getElementById('uv-total').textContent = s.total;
-  document.getElementById('uv-inprog').textContent = s.inprog;
-  document.getElementById('uv-done').textContent = (myTasks||[]).filter(t=>t.status==='Done').length;
-  document.getElementById('uv-high').textContent = s.high;
-  document.getElementById('uv-avg').textContent = s.avg + '%';
-  document.getElementById('uvTaskCount').textContent = `${filtered.length} รายการ`;
-
-  document.getElementById('uv-taskBody').innerHTML = filtered.map(t => `
-    <tr>
-      <td>
-        <div class="task-name">${t.name}</div><div class="group-pill">${t.group||'ทั่วไป'}</div>
-        ${t.pm_comment ? `<div class="pm-comment-box">💬 PM: ${t.pm_comment}</div>` : ''}
-      </td>
-      <td>${priBadge(t.priority)}</td>
-      <td>${statBadge(t.status)}</td>
-      <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
-      <td>${progBar(t.progress)}</td>
-      <td>
-        <div style="display:flex;gap:4px">
-          <button class="btn btn-sm btn-primary" onclick="openProgressModal(${t.id})">อัปเดต</button>
-          ${t.status !== 'Pending Review' && t.status !== 'Done' ? `<button class="btn btn-sm" style="background:#fef3c7;color:#92400e" onclick="requestReview(${t.id})">ส่งตรวจ</button>` : ''}
-        </div>
-      </td>
-    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text3)">ไม่มีงานที่ได้รับมอบหมาย</td></tr>';
-}
-
-async function submitDailyLog() {
-  const msg = document.getElementById('dailyLogText').value.trim();
-  if(!msg) return alert('กรุณาพิมพ์ข้อความบันทึก');
-  showLoading(true);
-  const { error } = await db.from('daily_logs').insert([{
-    user_id: currentUser.id,
-    user_email: currentUser.email,
-    display_name: currentUser.display_name,
-    message: msg
-  }]);
-  showLoading(false);
-  if(error) alert(error.message);
-  else {
-    document.getElementById('dailyLogText').value = '';
-    document.getElementById('dailyLogCount').textContent = '0/500';
-    loadMyRecentLogs();
-  }
-}
-
-async function loadMyRecentLogs() {
-  const { data } = await db.from('daily_logs').select('*')
-    .eq('user_id', currentUser.id)
-    .order('created_at', { ascending: false }).limit(5);
-  
-  const container = document.getElementById('myRecentLogs');
-  if(!data || data.length === 0) {
-    container.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:10px">ยังไม่มีบันทึกย้อนหลัง</div>';
-    return;
-  }
-  container.innerHTML = data.map(l => `
-    <div class="recent-log-item">
-      <div style="font-size:11px;color:var(--text3);margin-bottom:4px">${fmtDate(l.created_at)} ${new Date(l.created_at).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})} น.</div>
-      <div>${l.message.replace(/\n/g,'<br>')}</div>
-    </div>`).join('');
-}
-
-function openProgressModal(id) {
-  const t = myTasks.find(x => x.id === id);
-  if(!t) return;
-  document.getElementById('pm-id').value = id;
-  document.getElementById('pm-name').textContent = t.name;
-  document.getElementById('pm-status').value = t.status;
-  document.getElementById('pm-progress').value = t.progress;
-  document.getElementById('pm-note').value = t.note || '';
-  document.getElementById('progressModal').classList.add('open');
-}
-
-async function saveProgress() {
-  const id = document.getElementById('pm-id').value;
-  const obj = {
-    status: document.getElementById('pm-status').value,
-    progress: parseInt(document.getElementById('pm-progress').value)||0,
-    note: document.getElementById('pm-note').value
-  };
-  showLoading(true);
-  const { error } = await db.from('tasks').update(obj).eq('id', id);
-  showLoading(false);
-  if(error) alert(error.message);
-  else { closeModal('progressModal'); initUserView(); }
-}
-
-async function requestReview(id) {
-  if(!confirm('ยืนยันส่งงานนี้ให้ PM ตรวจสอบ?')) return;
-  showLoading(true);
-  const { error } = await db.from('tasks').update({ status: 'Pending Review' }).eq('id', id);
-  showLoading(false);
-  if(error) alert(error.message);
-  else initUserView();
-}
-
-// ════════════════════════════════
-//  MISSING ADMIN FUNCTIONS RESTORED
-// ════════════════════════════════
-function openUserModal(id) {
-  const u = users.find(x => x.id === id);
-  if(!u) return;
-  document.getElementById('userEditId').value = u.id;
-  document.getElementById('u-email').value = u.email;
-  document.getElementById('u-name').value = u.display_name || '';
-  document.getElementById('u-position').value = u.position || '';
-  document.getElementById('u-dept').value = u.dept || '';
-  document.getElementById('u-role-select').value = u.role || 'user';
-  document.getElementById('userModal').classList.add('open');
-}
-
-async function saveUser() {
-  const id = document.getElementById('userEditId').value;
-  const obj = {
-    display_name: document.getElementById('u-name').value.trim(),
-    position: document.getElementById('u-position').value.trim(),
-    dept: document.getElementById('u-dept').value.trim(),
-    role: document.getElementById('u-role-select').value
-  };
-  showLoading(true);
-  const { error } = await db.from('profiles').update(obj).eq('id', id);
-  showLoading(false);
-  if(error) alert(error.message);
-  else { closeModal('userModal'); initData(); }
-}
-
-async function deleteUser(id) {
-  if(confirm('ระวัง! คุณต้องการลบผู้ใช้งานนี้จริงๆ หรือไม่?')) {
-    alert('ระบบความปลอดภัย: การลบผู้ใช้งานต้องทำผ่านหน้า Database ของ Supabase โดยตรงครับ');
-  }
-}
-
-function renderWorkload() {
-  const table = {};
-  users.forEach(u => { table[u.email] = { name: u.display_name||u.email, total:0, inprog:0, todo:0, pending:0, done:0, progSum:0 }; });
-  
-  tasks.forEach(t => {
-    const e = t.assigned_email?.toLowerCase();
-    if(table[e]) {
-      table[e].total++;
-      if(t.status==='In Progress') table[e].inprog++;
-      if(t.status==='To Do') table[e].todo++;
-      if(t.status==='Pending Review') table[e].pending++;
-      if(t.status==='Done') table[e].done++;
-      table[e].progSum += (t.progress||0);
-    }
-  });
-
-  const html = Object.values(table).map(w => {
-    const avg = w.total ? Math.round(w.progSum / w.total) : 0;
-    return `<tr>
-      <td style="font-weight:600">${w.name}</td>
-      <td style="text-align:center">${w.total}</td>
-      <td style="text-align:center;color:var(--blue);font-weight:600">${w.inprog}</td>
-      <td style="text-align:center">${w.todo}</td>
-      <td style="text-align:center;color:var(--amber)">${w.pending}</td>
-      <td style="text-align:center;color:var(--green)">${w.done}</td>
-      <td>${progBar(avg)}</td>
-    </tr>`;
-  }).join('');
-  document.getElementById('workloadBody').innerHTML = html || '<tr><td colspan="7" style="text-align:center;color:var(--text3)">ไม่มีข้อมูล</td></tr>';
-}
-
-function renderBottleneckAlerts() {
-  const banner = document.getElementById('bottleneckBanner');
-  const today = new Date();
-  today.setHours(0,0,0,0);
-  const tmr = new Date(today); tmr.setDate(tmr.getDate()+1);
-  
-  const overdue = [], dueTmr = [], stuck = [];
-  
-  tasks.forEach(t => {
-    if(t.status === 'Done') return;
-    if(t.due) {
-      const d = new Date(t.due);
-      if(d < today) overdue.push(t);
-      else if(d.getTime() === tmr.getTime()) dueTmr.push(t);
-    }
-    if(t.status === 'To Do' && t.created_at) {
-      const c = new Date(t.created_at);
-      const diff = (today - c) / (1000 * 60 * 60 * 24);
-      if(diff >= 7) stuck.push(t);
-    }
-  });
-
-  let html = '';
-  if(overdue.length) html += `<div class="bn-item bn-overdue">🚨 งานเลยกำหนด (${overdue.length})</div>`;
-  if(dueTmr.length) html += `<div class="bn-item bn-tomorrow">⏳ ส่งพรุ่งนี้ (${dueTmr.length})</div>`;
-  if(stuck.length) html += `<div class="bn-item bn-stuck">💤 ค้าง To Do นานเกิน 7 วัน (${stuck.length})</div>`;
-  
-  banner.innerHTML = html;
-  banner.style.display = html ? 'flex' : 'none';
-}
-
-// ════════════════════════════════
-//  STUB FUNCTIONS (For pages not fully implemented yet)
-// ════════════════════════════════
-function renderDashboard() {}
-function renderReport() {}
-function renderProjects() {}
-function openProjModal() { alert('ฟีเจอร์กำลังอยู่ระหว่างพัฒนา'); }
-function saveProject() {}
 
 // ════════════════════════════════
 //  CLOCK & REFRESH
