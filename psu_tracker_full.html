@@ -676,6 +676,32 @@ let tasks = [], users = [], projects = [], dailyLogs = [];
 let myTasks = [];
 
 // ════════════════════════════════
+//  AUTH UI LOGIC (RESTORING LOGIN FIX)
+// ════════════════════════════════
+let authMode = 'login';
+
+function switchTab(tab) {
+  authMode = tab;
+  document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+  document.getElementById('tabSignup').classList.toggle('active', tab === 'signup');
+  document.getElementById('confirmWrap').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('signupExtraFields').style.display = tab === 'signup' ? 'block' : 'none';
+  document.getElementById('authBtn').textContent = tab === 'login' ? 'เข้าสู่ระบบ' : 'สมัครใช้งาน';
+  document.getElementById('authError').textContent = '';
+}
+
+function togglePass(id, btn) {
+  const input = document.getElementById(id);
+  if(input.type === 'password') {
+    input.type = 'text';
+    btn.style.color = 'var(--blue)';
+  } else {
+    input.type = 'password';
+    btn.style.color = 'var(--text3)';
+  }
+}
+
+// ════════════════════════════════
 //  AUTH & UI STATE
 // ════════════════════════════════
 async function initAuth() {
@@ -725,6 +751,8 @@ async function setUserUI(user) {
 async function doAuth() {
   const email = document.getElementById('authEmail').value.trim();
   const password = document.getElementById('authPassword').value;
+  
+  // NOTE: Uncomment this below to test with general emails like @gmail.com
   if (!email.endsWith('@psu.ac.th')) { alert('กรุณาใช้ email @psu.ac.th'); return; }
   
   const { error } = authMode === 'login'
