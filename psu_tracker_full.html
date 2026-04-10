@@ -1,6 +1,142 @@
 <!--
-  PSU Tracker DB Migration (run in Supabase SQL Editor):
-  ALTER TABLE tasks ADD COLUMN pm_comment VARCHAR(255) NULL;
+════════════════════════════════════════════════════════════════
+  PSU Tracker — Full SQL Migration (Supabase SQL Editor)
+  Run once per environment. Safe to re-run (IF NOT EXISTS).
+════════════════════════════════════════════════════════════════
+
+-- ── 1. tasks: new columns ──────────────────────────────────
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS pm_comment   VARCHAR(255) NULL;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS phase        VARCHAR(20)  NULL;  -- SI.2 / SI.3 / SI.4 / SI.5 / SI.6
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS tag_type     VARCHAR(50)  NULL;  -- Change Request / Bug/Issue / งานทั่วไป
+
+-- ── 2. projects: new columns ───────────────────────────────
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS scope          TEXT    NULL;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS component_list TEXT    NULL;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS document_links JSONB   NULL DEFAULT '[]'::jsonb;
+
+-- ── 3. daily_logs: meeting flag ────────────────────────────
+ALTER TABLE daily_logs ADD COLUMN IF NOT EXISTS is_meeting BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- ── 4. project_documents ───────────────────────────────────
+CREATE TABLE IF NOT EXISTS project_documents (
+  id           BIGSERIAL PRIMARY KEY,
+  project_id   BIGINT       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  title        TEXT         NOT NULL,
+  doc_type     VARCHAR(60)  NULL,
+  phase        VARCHAR(30)  NULL,
+  responsible  VARCHAR(100) NULL,
+  status       VARCHAR(30)  NOT NULL DEFAULT 'ไม่มี',
+  url          TEXT         NULL,
+  is_required  BOOLEAN      NOT NULL DEFAULT FALSE,
+  sort_order   INT          NOT NULL DEFAULT 99,
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+ALTER TABLE project_documents ENABLE ROW LEVEL SECURITY;
+-- OWASP Least Privilege: project_documents visible only to task members or admin/superadmin
+CREATE POLICY IF NOT EXISTS "auth project_documents" ON project_documents FOR ALL USING (
+  get_my_role() IN ('admin','superadmin')
+  OR EXISTS (
+    SELECT 1 FROM tasks t
+    JOIN projects p ON p.id = project_id
+    WHERE (t.group) ILIKE p.name
+      AND t.assigned_email ILIKE (auth.jwt()->>'email')
+  )
+);
+
+-- ── 5. project_milestones ──────────────────────────────────
+CREATE TABLE IF NOT EXISTS project_milestones (
+  id           BIGSERIAL PRIMARY KEY,
+  project_id   BIGINT       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  phase        VARCHAR(20)  NULL,
+  title        TEXT         NOT NULL,
+  start_date   DATE         NULL,
+  end_date     DATE         NULL,
+  status       VARCHAR(30)  NOT NULL DEFAULT 'Not Started',
+  note         TEXT         NULL,
+  sort_order   INT          NOT NULL DEFAULT 99,
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+ALTER TABLE project_milestones ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "auth project_milestones" ON project_milestones FOR ALL USING (
+  get_my_role() IN ('admin','superadmin')
+  OR EXISTS (
+    SELECT 1 FROM tasks t
+    JOIN projects p ON p.id = project_id
+    WHERE (t.group) ILIKE p.name
+      AND t.assigned_email ILIKE (auth.jwt()->>'email')
+  )
+);
+
+-- ── 6. test_cases ──────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS test_cases (
+  id           BIGSERIAL PRIMARY KEY,
+  project_id   BIGINT       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  tc_id        VARCHAR(30)  NULL,
+  title        TEXT         NOT NULL,
+  input_data   TEXT         NULL,
+  expected     TEXT         NULL,
+  actual       TEXT         NULL,
+  result       VARCHAR(20)  NOT NULL DEFAULT 'Untested',  -- Untested / Pass / Fail
+  tester       VARCHAR(100) NULL,
+  tested_at    DATE         NULL,
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+ALTER TABLE test_cases ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "auth test_cases" ON test_cases FOR ALL USING (
+  get_my_role() IN ('admin','superadmin')
+  OR EXISTS (
+    SELECT 1 FROM tasks t
+    JOIN projects p ON p.id = project_id
+    WHERE (t.group) ILIKE p.name
+      AND t.assigned_email ILIKE (auth.jwt()->>'email')
+  )
+);
+
+-- ── 7. traceability_matrix ─────────────────────────────────
+CREATE TABLE IF NOT EXISTS traceability_matrix (
+  id           BIGSERIAL PRIMARY KEY,
+  project_id   BIGINT       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  req_id       VARCHAR(30)  NULL,
+  requirement  TEXT         NOT NULL,
+  design_ref   TEXT         NULL,
+  tc_id        VARCHAR(30)  NULL,
+  status       VARCHAR(30)  NOT NULL DEFAULT 'Not Covered',  -- Not Covered / Partially / Covered
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+ALTER TABLE traceability_matrix ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "auth traceability_matrix" ON traceability_matrix FOR ALL USING (
+  get_my_role() IN ('admin','superadmin')
+  OR EXISTS (
+    SELECT 1 FROM tasks t
+    JOIN projects p ON p.id = project_id
+    WHERE (t.group) ILIKE p.name
+      AND t.assigned_email ILIKE (auth.jwt()->>'email')
+  )
+);
+
+-- ── 8. handover_records ────────────────────────────────────
+CREATE TABLE IF NOT EXISTS handover_records (
+  id             BIGSERIAL PRIMARY KEY,
+  project_id     BIGINT       NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  handover_date  DATE         NULL,
+  receiver       VARCHAR(150) NOT NULL,
+  items          TEXT         NULL,
+  uat_status     VARCHAR(30)  NOT NULL DEFAULT 'Pending',  -- Pending / In Progress / Passed / Failed
+  note           TEXT         NULL,
+  created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+ALTER TABLE handover_records ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "auth handover_records" ON handover_records FOR ALL USING (
+  get_my_role() IN ('admin','superadmin')
+  OR EXISTS (
+    SELECT 1 FROM tasks t
+    JOIN projects p ON p.id = project_id
+    WHERE (t.group) ILIKE p.name
+      AND t.assigned_email ILIKE (auth.jwt()->>'email')
+  )
+);
+
+════════════════════════════════════════════════════════════════
 -->
 <!DOCTYPE html>
 <html lang="th">
@@ -465,6 +601,32 @@
 
     .row-urgent td:first-child {
       border-left: 2px solid var(--red)
+    }
+
+    .row-overdue td { background: #fff5f5 !important; }
+    .row-overdue td:first-child { border-left: 3px solid #e53935 !important; }
+    .overdue-badge {
+      display: inline-block;
+      background: #fef2f2;
+      color: #dc2626;
+      font-size: 9px;
+      padding: 1px 5px;
+      border-radius: 99px;
+      font-weight: 700;
+      margin-left: 4px;
+      vertical-align: middle;
+    }
+    .reject-banner {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: var(--r8);
+      font-size: 12px;
+      color: #991b1b;
+      margin-bottom: 2px;
     }
 
     .personal-badge {
@@ -1453,6 +1615,14 @@
             <option>Done</option>
             <option>Pending Review</option>
           </select>
+          <select class="fselect" id="phaseFilter" onchange="renderTaskBoard()">
+            <option value="">Phase: ทั้งหมด</option>
+            <option>SI.2</option><option>SI.3</option><option>SI.4</option><option>SI.5</option><option>SI.6</option>
+          </select>
+          <select class="fselect" id="tagFilter" onchange="renderTaskBoard()">
+            <option value="">Tag: ทั้งหมด</option>
+            <option>Change Request</option><option>Bug/Issue</option><option>งานทั่วไป</option>
+          </select>
           <button class="btn btn-primary" id="btnAddNewTask" onclick="openTaskModal()" style="display:none">+
             เพิ่มงานใหม่</button>
           <button class="btn" onclick="initData()">รีเฟรช</button>
@@ -1725,7 +1895,13 @@
           <div class="stat-val c-green" id="uv-avg">0%</div>
           <div class="stat-sub">ภาพรวม</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-label">⚠️ เกินกำหนด</div>
+          <div class="stat-val c-red" id="uv-overdue">0</div>
+          <div class="stat-sub">งานค้างเลยวันส่ง</div>
+        </div>
       </div>
+      <div id="uv-reject-banner"></div>
       <div class="filter-bar">
         <input class="search-box" style="max-width: 320px;" type="text" placeholder="ค้นหาชื่องาน / กลุ่ม..." id="uvTaskSearch"
           oninput="renderUserView()">
@@ -1831,14 +2007,9 @@
               <option value="">-- เลือกผู้รับผิดชอบ --</option>
             </select>
           </div>
-          <div class="form-group"><label>หมวดหมู่</label>
-            <select id="f-group">
-              <option>ระบบสารสนเทศ</option>
-              <option>พัฒนา App</option>
-              <option>เว็บไซต์</option>
-              <option>ประเมินผล</option>
-              <option>เอกสาร</option>
-            </select>
+          <div class="form-group"><label>หมวดหมู่ / โปรเจกต์</label>
+            <input type="text" id="f-group" list="projectNameList" placeholder="พิมพ์หรือเลือกโปรเจกต์...">
+            <datalist id="projectNameList"></datalist>
           </div>
         </div>
         <div class="form-row">
@@ -2233,12 +2404,16 @@
       const q = document.getElementById('taskSearch').value.toLowerCase();
       const pri = document.getElementById('priFilter').value;
       const st = document.getElementById('statFilter').value;
+      const phase = document.getElementById('phaseFilter').value;
+      const tag = document.getElementById('tagFilter').value;
       const isAdminOrPM = currentUser.role === 'admin' || currentUser.role === 'superadmin';
+      const today = new Date().toISOString().split('T')[0];
 
       const visible = tasks.filter(t => isAdminOrPM || !t.is_personal || t.assigned_email?.toLowerCase() === currentUser.email.toLowerCase());
       const filtered = visible.filter(t =>
         (!q || t.name.toLowerCase().includes(q) || t.assigned_email?.toLowerCase().includes(q)) &&
-        (!pri || t.priority === pri) && (!st || t.status === st)
+        (!pri || t.priority === pri) && (!st || t.status === st) &&
+        (!phase || t.phase === phase) && (!tag || t.tag_type === tag)
       );
 
       const s = calcStats(visible);
@@ -2250,20 +2425,35 @@
       document.getElementById('taskCount').textContent = `แสดง ${filtered.length} / ${visible.length} รายการ`;
       document.getElementById('reviewBadge').textContent = tasks.filter(t => t.status === 'Pending Review').length;
 
-      document.getElementById('taskBody').innerHTML = filtered.map(t => `
-    <tr class="${t.priority === 'High' ? 'row-urgent' : ''}">
+      // O(1) owner lookup — pre-build once instead of O(M) users.find per row
+      const ownerMap = new Map(users.map(u => [u.email?.toLowerCase(), u.display_name || u.email]));
+
+      document.getElementById('taskBody').innerHTML = filtered.map(t => {
+        const isOverdue = t.due && t.due < today && t.status !== 'Done';
+        const rowCls = (t.priority === 'High' ? 'row-urgent' : '') + (isOverdue ? ' row-overdue' : '');
+        const statusCell = isAdminOrPM
+          ? `<select style="font-size:11px;padding:3px 6px;border-radius:6px;border:var(--border-half);background:var(--surface2);color:var(--text);cursor:pointer;max-width:110px"
+               onchange="quickUpdateTaskStatus(${t.id}, this.value)">
+               <option ${t.status==='To Do'?'selected':''}>To Do</option>
+               <option ${t.status==='In Progress'?'selected':''}>In Progress</option>
+               <option ${t.status==='Pending Review'?'selected':''}>Pending Review</option>
+               <option ${t.status==='Done'?'selected':''}>Done</option>
+             </select>`
+          : statBadge(t.status);
+        return `
+    <tr class="${rowCls}">
       <td style="color:var(--text3);font-size:11px;text-align:center">${t.id}</td>
       <td><div class="task-name" title="${t.name}">${t.name}${t.is_personal ? '<span class="personal-badge">🔒</span>' : ''}</div>
           ${t.pm_comment ? `<div class="pm-comment-box">💬 PM: ${t.pm_comment}</div>` : ''}</td>
-      <td><div class="cell-muted">${getOwnerName(t.assigned_email)}</div></td>
+      <td><div class="cell-muted">${ownerMap.get(t.assigned_email?.toLowerCase()) || t.assigned_email || '-'}</div></td>
       <td>
         <div class="group-pill">${t.group || 'ทั่วไป'}</div>
         ${t.phase ? `<span class="phase-badge">${t.phase}</span>` : ''}
         ${t.tag_type && t.tag_type !== 'งานทั่วไป' ? `<span class="badge ${t.tag_type === 'Change Request' ? 'tag-cr' : 'tag-bug'}" style="font-size:10px;margin-left:3px">${t.tag_type}</span>` : ''}
       </td>
       <td>${priBadge(t.priority)}</td>
-      <td>${statBadge(t.status)}</td>
-      <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
+      <td>${statusCell}</td>
+      <td><div class="cell-muted">${fmtDate(t.due)}${isOverdue ? '<span class="overdue-badge">⚠️ เกิน</span>' : ''}</div></td>
       <td>${progBar(t.progress)}</td>
       <td>
         <div style="display:flex;gap:4px">
@@ -2277,7 +2467,16 @@
           ` : '<span style="color:var(--text3)">Read Only</span>'}
         </div>
       </td>
-    </tr>`).join('') || '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text3)">ไม่พบข้อมูล</td></tr>';
+    </tr>`;
+      }).join('') || '<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text3)">ไม่พบข้อมูล</td></tr>';
+    }
+
+    async function quickUpdateTaskStatus(id, status) {
+      const { error } = await db.from('tasks').update({ status }).eq('id', id);
+      if (error) { alert(error.message); return; }
+      const t = tasks.find(x => x.id === id);
+      if (t) t.status = status;
+      renderTaskBoard();
     }
 
     // ════════════════════════════════
@@ -2460,6 +2659,7 @@
     async function openTaskModal(id) {
       const sel = document.getElementById('f-assignee');
       sel.innerHTML = '<option value="">-- เลือกผู้รับผิดชอบ --</option>' + users.map(u => `<option value="${u.email}">${u.display_name || u.email}</option>`).join('');
+      document.getElementById('projectNameList').innerHTML = projects.map(p => `<option value="${p.name}">`).join('');
       document.getElementById('personalTaskRow').style.display = 'block';
       document.getElementById('taskEditId').value = id || '';
       if (id) {
@@ -2570,31 +2770,56 @@
     function renderUserView() {
       const q = (document.getElementById('uvTaskSearch')?.value || '').toLowerCase();
       const st = document.getElementById('uvStatFilter')?.value || '';
+      const today = new Date().toISOString().split('T')[0];
       const filtered = myTasks.filter(t =>
         (!q || t.name.toLowerCase().includes(q) || (t.group || '').toLowerCase().includes(q)) &&
         (!st || t.status === st)
       );
+      const overdueCount = myTasks.filter(t => t.due && t.due < today && t.status !== 'Done').length;
       document.getElementById('uv-total').textContent = myTasks.length;
       document.getElementById('uv-inprog').textContent = myTasks.filter(t => t.status === 'In Progress').length;
       document.getElementById('uv-done').textContent = myTasks.filter(t => t.status === 'Done').length;
       document.getElementById('uv-high').textContent = myTasks.filter(t => t.priority === 'High').length;
       const avg = myTasks.length ? Math.round(myTasks.reduce((s, t) => s + (t.progress || 0), 0) / myTasks.length) : 0;
       document.getElementById('uv-avg').textContent = avg + '%';
+      document.getElementById('uv-overdue').textContent = overdueCount;
       document.getElementById('uvTaskCount').textContent = `${filtered.length} รายการ`;
+
+      // Rejected task banner
+      const rejected = myTasks.filter(t => t.pm_comment);
+      const banner = document.getElementById('uv-reject-banner');
+      if (rejected.length) {
+        banner.innerHTML = `<div class="reject-banner">
+          <span style="font-size:16px">🔴</span>
+          <div>
+            <b>งานถูกตีกลับ ${rejected.length} รายการ</b> — กรุณาตรวจสอบ PM Comment แล้วแก้ไขงาน:
+            ${rejected.map(t => `<span style="margin-left:8px;background:#fee2e2;padding:1px 8px;border-radius:99px;font-size:11px">${t.name}</span>`).join('')}
+          </div>
+        </div>`;
+      } else {
+        banner.innerHTML = '';
+      }
+
       document.getElementById('uv-taskBody').innerHTML = filtered.length
-        ? filtered.map(t => `
-      <tr class="${t.priority === 'High' ? 'row-urgent' : ''}">
+        ? filtered.map(t => {
+            const isOverdue = t.due && t.due < today && t.status !== 'Done';
+            const rowCls = (t.priority === 'High' ? 'row-urgent' : '') + (isOverdue ? ' row-overdue' : '');
+            return `
+      <tr class="${rowCls}">
         <td>
           <div class="task-name" style="cursor:default">${t.name}</div>
           ${t.group ? `<span class="group-pill">${t.group}</span>` : ''}
+          ${t.phase ? `<span class="phase-badge">${t.phase}</span>` : ''}
+          ${t.tag_type && t.tag_type !== 'งานทั่วไป' ? `<span class="badge ${t.tag_type === 'Change Request' ? 'tag-cr' : 'tag-bug'}" style="font-size:10px;margin-left:3px">${t.tag_type}</span>` : ''}
           ${t.pm_comment ? `<div class="pm-comment-box">💬 PM: ${t.pm_comment}</div>` : ''}
         </td>
         <td>${priBadge(t.priority)}</td>
         <td>${statBadge(t.status)}</td>
-        <td><div class="cell-muted">${fmtDate(t.due)}</div></td>
+        <td><div class="cell-muted">${fmtDate(t.due)}${isOverdue ? '<span class="overdue-badge">⚠️ เกิน</span>' : ''}</div></td>
         <td>${progBar(t.progress)}</td>
         <td><button class="btn btn-sm btn-primary" onclick="openProgressModal(${t.id})">อัปเดต</button></td>
-      </tr>`).join('')
+      </tr>`;
+          }).join('')
         : '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:20px">ยังไม่มีงาน</td></tr>';
     }
 
@@ -2724,7 +2949,7 @@
       const filtered = projects.filter(p => !q || (p.name || '').toLowerCase().includes(q));
       document.getElementById('projCount').textContent = `${filtered.length} โปรเจกต์`;
       document.getElementById('projectsGrid').innerHTML = filtered.map(p => {
-        const related = tasks.filter(t => t.group === p.name);
+        const related = tasks.filter(t => (t.group || '').toLowerCase().trim() === (p.name || '').toLowerCase().trim());
         const avg = related.length ? Math.round(related.reduce((s, t) => s + (t.progress || 0), 0) / related.length) : 0;
         const cd = countdownBadge(p.due_date);
         return `
@@ -2860,7 +3085,7 @@
     }
 
     function renderPDOverview(proj) {
-      const related = tasks.filter(t => t.group === proj.name);
+      const related = tasks.filter(t => (t.group || '').toLowerCase().trim() === (proj.name || '').toLowerCase().trim());
       const avg = related.length ? Math.round(related.reduce((s, t) => s + (t.progress || 0), 0) / related.length) : 0;
       const statMap = { 'In Progress': 0, 'To Do': 0, 'Done': 0, 'Pending Review': 0 };
       related.forEach(t => { if (statMap[t.status] !== undefined) statMap[t.status]++; });
